@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-// import OZ stuff for everything. including governance, ownership, tokens(erc20, erc721), 
+// import OZ stuff for everything. including governance, ownership, tokens(erc20, erc721)
+
+// handles one grant per address
+
+// vesting vault. 
 
 contract AlloStealthFundoor {
     // this should house the main functionality for slashing, distributing tokens as well as 
