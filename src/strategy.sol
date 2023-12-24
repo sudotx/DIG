@@ -7,7 +7,6 @@ pragma solidity ^0.8.13;
 
 // vesting vault?.
 
-import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {BaseStrategy} from "src/BaseStrategy.sol";
 import {IAllo} from "src/interfaces/IAllo.sol";
 import {IRegistry} from "src/interfaces/IRegistry.sol";
