@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-// import solady for everything. including governance, ownership, tokens(erc20, erc721)
+// import solady for everything. including ownership, tokens(erc20, erc721)
 
 // handles one grant per address
 
 // vesting vault?.
 
+import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {BaseStrategy} from "src/BaseStrategy.sol";
 import {IAllo} from "src/interfaces/IAllo.sol";
 import {IRegistry} from "src/interfaces/IRegistry.sol";
