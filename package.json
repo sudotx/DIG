@@ -3,5 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "author": "sudotx <64108848+sudotx@users.noreply.github.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "solady": "^0.0.153"
+  }
 }
