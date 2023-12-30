@@ -1,76 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-// import solady for everything. including ownership, tokens(erc20, erc721)
-
-// handles one grant per address
-
-// vesting vault?.
-
 import {BaseStrategy} from "src/BaseStrategy.sol";
 import {IAllo} from "src/interfaces/IAllo.sol";
 import {IRegistry} from "src/interfaces/IRegistry.sol";
 import {Metadata} from "src/libraries/Metadata.sol";
 
-contract AlloStealthFundoor {
-    // this should house the main functionality for slashing, distributing tokens as well as
-    // interacting with the main allo funds allocation
+// represents the nft held by the guardians, they can be allows to vote on who gets funded..
+// if not staked, it will be exempt. holders of the nft will also receive residual funds from the strategy
 
-    function withdrawPayOut() public {
-        // an EOA(anon) can withdraw a part of the total payout staked for it
-        // it should not be able to withdraw all its stake
-        // naturally should have 3 vesting schedules. 33, 33, 33 -> rest stays on the contract. goes back to protocol
-        // between the 3 schedules, the anon will be sending up updates accoring to why they got the grant in the first place
-        // edge case..anons will just aim to get the 1/3 of the payout..each payout could be much granular.
-        // maybe a configurable % can be set due to some calculated risk appetite of the project
-    }
-    function delegateFundsForAnAnon() public {
-        // this interacts with the allo contract to get the funds into this contract.abi
-        // so some funds will be set aside for a project, which represent the project getting a grant
-    }
-    function slashAnonUser() public {
-        // slash an anon from getting any more payouts from the system
-    }
-    function slashGuardian() public {
-        // slash a percievd to be malicious guardian
-    }
-    function confidenceThreshold() public {
-        // threshold for confidence
-    }
-    function updateConfidenceThreshold() public {
-        // owner can change this
-    }
-    function getGuardian() public {
-        // get details of a guardian
-        // including the votes made, users slashed etc
-    }
-    function voteAgainstGuardian() public {
-        // other guardians can vote against guardians percieved to be malicious
-    }
-    function slashAFlaggedAnon() public {
-        // slash an anon account that has been flagged previously, from receiving any other grants from this contract
-    }
-    function flagAnAnon() public {
-        // flag an anon percieved to be malicious
-    }
-    function unstake() public {
-        // guardians can unstake to stop being a guardian
-    }
-    function stake() public {
-        // accounts can stake token to become a guardian
-    }
-    function distribute() public {
-        // distribute funds to all whitelisted anons
-        // based on varying schedules
 
-        // can be called by the owner of the contract. which is the super admin
-    }
 
-    function getPubKey() public {}
-    function setPubKey() public {}
-}
+
+import {Strat} from "src/strategy.nft.sol";
 
 contract StealthStrategy is BaseStrategy {
+
+
     /// ================================
     /// ========== Struct ==============
     /// ================================
@@ -85,6 +31,8 @@ contract StealthStrategy is BaseStrategy {
     }
 
     /// @notice Stores the details of the milestone
+
+    // funds are issued to users, based on milestones
     struct Milestone {
         uint256 amountPercentage;
         Metadata metadata;
@@ -148,6 +96,72 @@ contract StealthStrategy is BaseStrategy {
     /// ========== Storage =============
     /// ================================
 
+
+    /*//////////////////////////////////////////////////////////////
+                            PROPOSED ACTORS
+    //////////////////////////////////////////////////////////////*/
+
+    // create a lot of initiatives, pay a fee to create to avoid spamming
+
+    //! it is better to give roles to Actors instead of fitting them into an array that grows expensive as the list of users increase
+    //* but a good way to visualize things for now
+
+    // this is the attached fee for an initative that can be set on the decision of the guardians
+    uint256 feeForInitiative;
+
+    // agreed upon time funds can stay in the pool for unstreamed, before being sent back to all who funded the initiative
+    uint256 amountOfTimeUnusedFundsStayInThePool;
+    
+    // these users are the ideators, think of cool ideas. pay a fee to add it to the list of initiatives
+    // the initiative can either affect them 
+    address[] public InitiativeCreators;
+    
+    // these are the nft/token holders that vote to which intiative if funded by sending in some funds to the initiative
+    // from thier balances on the platform, these funds are used to fund the general pool of the system
+
+    // they can be anyone, any concerned party looking to deploy capital to a public or good that is relevant to them
+    address[] public Voters;
+    
+    // theses are delegated users that can perform constant votes to the direction of the system. 
+    // they are selected by the community.
+    address[] public Guardians;
+
+    // they are selected by the guardians and community, as specialized individuals who can carry out a task 
+    // they are penalizeed for not meeting up to task expectation by being slashed from receiving streaming rewards
+    address[] public Knights;
+
+    struct Initiative{
+        // description of the initiative in as much detail as needed, this will be shown on the frontend.
+        //! again using an array of bytes like this tends to get more expensive with more characters
+        string Description;
+
+        // initiativeCreator that thought of this
+        address Creator;
+        // representing amount of pool funds to be allocated to this initiative
+        uint256 CurrentFundsAllocated;
+        // guardians first have to clear this initiative for funding
+        bool isClearedForFunding;
+
+        // if funding goal is reached, then the funds can be streamed to a selected knight 
+        // if there is no selected knight at this time, funds remain in the pool for a set amount of time
+        // other wise refunds are sent back to all concerned parties. 
+        bool isFundingComplete;
+
+        // users who funded the initiative are added here, to decided how funds are used
+        // they have some voting power to veto the course of the initative
+
+        // guardians can vote, voters can vote, the creator of the initiative also has some funds allocated to it
+        address[] Voters;
+        // the knights are in charge of carrying out the initiative
+        // they are vetted by the guardians and community at large
+        // they are assumed to be skilled individuals, or bounty hunters
+        // they are streamed part of the funds from the pool 
+
+        // if they default at any milestone, they can be slashed and removed as a knight from the platform if they get 3 strikes or majority decision
+        address[] Knights;
+    }
+    
+
     /// @notice Flag to indicate whether to use the registry anchor or not.
     bool public useRegistryAnchor;
 
@@ -183,7 +197,9 @@ contract StealthStrategy is BaseStrategy {
     /// @notice Constructor for the RFP Simple Strategy
     /// @param _allo The 'Allo' contract
     /// @param _name The name of the strategy
-    constructor(address _allo, string memory _name) BaseStrategy(_allo, _name) {}
+    constructor(address _allo, string memory _name) BaseStrategy(_allo, _name) {
+        // do some cool stuff here 🐱
+    }
 
     /// ===============================
     /// ========= Initialize ==========
@@ -195,14 +211,14 @@ contract StealthStrategy is BaseStrategy {
     /// @custom:data (uint256 _maxBid, bool registryGating, bool metadataRequired)
     function initialize(uint256 _poolId, bytes memory _data) external virtual override {
         (InitializeParams memory initializeParams) = abi.decode(_data, (InitializeParams));
-        __RFPSimpleStrategy_init(_poolId, initializeParams);
+        __Strategy_init(_poolId, initializeParams);
         emit Initialized(_poolId, _data);
     }
 
     /// @notice This initializes the BaseStrategy
     /// @dev You only need to pass the 'poolId' to initialize the BaseStrategy and the rest is specific to the strategy
     /// @param _initializeParams The initialize params
-    function __RFPSimpleStrategy_init(uint256 _poolId, InitializeParams memory _initializeParams) internal {
+    function __Strategy_init(uint256 _poolId, InitializeParams memory _initializeParams) internal {
         // Initialize the BaseStrategy
         __BaseStrategy_init(_poolId);
 
@@ -501,6 +517,10 @@ contract StealthStrategy is BaseStrategy {
         emit Distributed(acceptedRecipientId, recipient.recipientAddress, amount, _sender);
     }
 
+    /*//////////////////////////////////////////////////////////////
+                        INTERNAL/PRIVATE HELPERS
+    //////////////////////////////////////////////////////////////*/
+
     /// @notice Check if sender is a profile owner or member.
     /// @param _anchor Anchor of the profile
     /// @param _sender The sender of the transaction
@@ -546,6 +566,60 @@ contract StealthStrategy is BaseStrategy {
     /// @return 'true' if the allocator is a pool manager, otherwise false
     function _isValidAllocator(address _allocator) internal view override returns (bool) {
         return allo.isPoolManager(poolId, _allocator);
+    }
+
+
+    // this should house the main functionality for slashing, distributing tokens as well as
+    // interacting with the main allo funds allocation
+
+    function withdrawPayOut() public {
+        // an EOA(anon) can withdraw a part of the total payout staked for it
+        // it should not be able to withdraw all its stake
+        // naturally should have 3 vesting schedules. 33, 33, 33 -> rest stays on the contract. goes back to protocol
+        // between the 3 schedules, the anon will be sending up updates accoring to why they got the grant in the first place
+        // edge case..anons will just aim to get the 1/3 of the payout..each payout could be much granular.
+        // maybe a configurable % can be set due to some calculated risk appetite of the project
+    }
+    function delegateFundsForAnAnon() public {
+        // this interacts with the allo contract to get the funds into this contract.abi
+        // so some funds will be set aside for a project, which represent the project getting a grant
+    }
+    function slashAnonUser() public {
+        // slash an anon from getting any more payouts from the system
+    }
+    function slashGuardian() public {
+        // slash a percievd to be malicious guardian
+    }
+    function confidenceThreshold() public {
+        // threshold for confidence
+    }
+    function updateConfidenceThreshold() public {
+        // owner can change this
+    }
+    function getGuardian() public {
+        // get details of a guardian
+        // including the votes made, users slashed etc
+    }
+    function voteAgainstGuardian() public {
+        // other guardians can vote against guardians percieved to be malicious
+    }
+    function slashAFlaggedAnon() public {
+        // slash an anon account that has been flagged previously, from receiving any other grants from this contract
+    }
+    function flagAnAnon() public {
+        // flag an anon percieved to be malicious
+    }
+    function unstake() public {
+        // guardians can unstake to stop being a guardian
+    }
+    function stake() public {
+        // accounts can stake token to become a guardian
+    }
+    function distribute() public {
+        // distribute funds to all whitelisted anons
+        // based on varying schedules
+
+        // can be called by the owner of the contract. which is the super admin
     }
 
     /// @notice This contract should be able to receive native token
