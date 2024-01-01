@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
-import {BaseStrategy} from "src/BaseStrategy.sol";
+import {BaseStrategy} from "src/strategy/BaseStrategy.sol";
 import {IAllo} from "src/interfaces/IAllo.sol";
 import {IRegistry} from "src/interfaces/IRegistry.sol";
 import {Metadata} from "src/libraries/Metadata.sol";
@@ -9,14 +9,10 @@ import {Metadata} from "src/libraries/Metadata.sol";
 // represents the nft held by the guardians, they can be allows to vote on who gets funded..
 // if not staked, it will be exempt. holders of the nft will also receive residual funds from the strategy
 
-
-
-
-import {Strat} from "src/strategy.nft.sol";
+// import sablier to stream funds
+// import hats to form a commitee of guardians
 
 contract StealthStrategy is BaseStrategy {
-
-
     /// ================================
     /// ========== Struct ==============
     /// ================================
@@ -96,7 +92,6 @@ contract StealthStrategy is BaseStrategy {
     /// ========== Storage =============
     /// ================================
 
-
     /*//////////////////////////////////////////////////////////////
                             PROPOSED ACTORS
     //////////////////////////////////////////////////////////////*/
@@ -111,42 +106,49 @@ contract StealthStrategy is BaseStrategy {
 
     // agreed upon time funds can stay in the pool for unstreamed, before being sent back to all who funded the initiative
     uint256 amountOfTimeUnusedFundsStayInThePool;
-    
+
+    // maximum ammount of funds that can be withdrawn from an intiative
+    // agreed on by community
+    uint256 maxWithdrawableFunds;
+
     // these users are the ideators, think of cool ideas. pay a fee to add it to the list of initiatives
-    // the initiative can either affect them 
-    address[] public InitiativeCreators;
-    
+    // the initiative can either affect them
+    address[] private InitiativeCreators;
+
     // these are the nft/token holders that vote to which intiative if funded by sending in some funds to the initiative
     // from thier balances on the platform, these funds are used to fund the general pool of the system
 
-    // they can be anyone, any concerned party looking to deploy capital to a public or good that is relevant to them
-    address[] public Voters;
-    
-    // theses are delegated users that can perform constant votes to the direction of the system. 
+    // they can be anyone, any concerned party looking to deploy capital to a private or good that is relevant to them
+    address[] private Voters;
+
+    // theses are delegated users that can perform constant votes to the direction of the system.
     // they are selected by the community.
-    address[] public Guardians;
 
-    // they are selected by the guardians and community, as specialized individuals who can carry out a task 
+    // mini aesir
+    address[] private Guardians;
+
+    // they are selected by the guardians and community, as specialized individuals who can carry out a task
     // they are penalizeed for not meeting up to task expectation by being slashed from receiving streaming rewards
-    address[] public Knights;
+    address[] private Knights;
 
-    struct Initiative{
+    // ALLFATHER, GOD OF AESIR
+    // multisig controlled by everyone, holding a governance NFT. used to assign and revoke guardian roles.
+    address public ALLFATHER;
+
+    struct Initiative {
         // description of the initiative in as much detail as needed, this will be shown on the frontend.
         //! again using an array of bytes like this tends to get more expensive with more characters
         string Description;
-
         // initiativeCreator that thought of this
         address Creator;
         // representing amount of pool funds to be allocated to this initiative
         uint256 CurrentFundsAllocated;
         // guardians first have to clear this initiative for funding
         bool isClearedForFunding;
-
-        // if funding goal is reached, then the funds can be streamed to a selected knight 
+        // if funding goal is reached, then the funds can be streamed to a selected knight
         // if there is no selected knight at this time, funds remain in the pool for a set amount of time
-        // other wise refunds are sent back to all concerned parties. 
+        // other wise refunds are sent back to all concerned parties.
         bool isFundingComplete;
-
         // users who funded the initiative are added here, to decided how funds are used
         // they have some voting power to veto the course of the initative
 
@@ -155,12 +157,11 @@ contract StealthStrategy is BaseStrategy {
         // the knights are in charge of carrying out the initiative
         // they are vetted by the guardians and community at large
         // they are assumed to be skilled individuals, or bounty hunters
-        // they are streamed part of the funds from the pool 
+        // they are streamed part of the funds from the pool
 
         // if they default at any milestone, they can be slashed and removed as a knight from the platform if they get 3 strikes or majority decision
         address[] Knights;
     }
-    
 
     /// @notice Flag to indicate whether to use the registry anchor or not.
     bool public useRegistryAnchor;
@@ -199,6 +200,7 @@ contract StealthStrategy is BaseStrategy {
     /// @param _name The name of the strategy
     constructor(address _allo, string memory _name) BaseStrategy(_allo, _name) {
         // do some cool stuff here 🐱
+        // set AllFather
     }
 
     /// ===============================
@@ -568,54 +570,73 @@ contract StealthStrategy is BaseStrategy {
         return allo.isPoolManager(poolId, _allocator);
     }
 
-
     // this should house the main functionality for slashing, distributing tokens as well as
     // interacting with the main allo funds allocation
 
-    function withdrawPayOut() public {
+    function createAnInitiative() private {
+        // users can create initiative
+        // pay a fee to prevent spam
+    }
+    function selectAnInitiative() private {
+        // providing the initiative details
+        // guardians select this initiative for possible funding
+        // the creator gets minted an NFT that will be used in the voting weight
+    }
+    function voteOnASelectedInitiative() private {
+        // providing the initiative details
+        // holders of the voting nft can vote on this nft and provide funding
+        // also users with specific roles can vote on a initiative as well
+        // funds sent via this function are routed to the attacked pool and wait to be streamed to an individual that can do the work
+    }
+
+    function withdrawPayOut() private {
         // an EOA(anon) can withdraw a part of the total payout staked for it
         // it should not be able to withdraw all its stake
         // naturally should have 3 vesting schedules. 33, 33, 33 -> rest stays on the contract. goes back to protocol
         // between the 3 schedules, the anon will be sending up updates accoring to why they got the grant in the first place
         // edge case..anons will just aim to get the 1/3 of the payout..each payout could be much granular.
         // maybe a configurable % can be set due to some calculated risk appetite of the project
+
+        // this logic will be refactored into a pattern that allows users to be streamed the funds to a contract
+        // then this function allws them to claim from the funds set aside for them
     }
-    function delegateFundsForAnAnon() public {
+
+    function delegateFundsForAnInitiative() private {
         // this interacts with the allo contract to get the funds into this contract.abi
-        // so some funds will be set aside for a project, which represent the project getting a grant
+        // so some funds will be set aside for an initiative, which represent the project getting a grant
     }
-    function slashAnonUser() public {
+
+    function slashAKnight() private {
         // slash an anon from getting any more payouts from the system
     }
-    function slashGuardian() public {
+    function slashAGuardian() private {
         // slash a percievd to be malicious guardian
     }
-    function confidenceThreshold() public {
+    function confidenceThreshold() private view {
         // threshold for confidence
     }
-    function updateConfidenceThreshold() public {
+    function updateConfidenceThreshold() private {
         // owner can change this
     }
-    function getGuardian() public {
+    function getGuardian() private view {
         // get details of a guardian
         // including the votes made, users slashed etc
     }
-    function voteAgainstGuardian() public {
+    function voteAgainstGuardian() private {
         // other guardians can vote against guardians percieved to be malicious
+        // guardian will be releived of its role
+
+        //! ensure guardian cannot send the role about
+        //! roles are only issues by the AllFather
     }
-    function slashAFlaggedAnon() public {
+    function slashAFlaggedAnon() private {
         // slash an anon account that has been flagged previously, from receiving any other grants from this contract
     }
-    function flagAnAnon() public {
+    function flagAKnight() private {
         // flag an anon percieved to be malicious
+        // by guardian
     }
-    function unstake() public {
-        // guardians can unstake to stop being a guardian
-    }
-    function stake() public {
-        // accounts can stake token to become a guardian
-    }
-    function distribute() public {
+    function distribute() private {
         // distribute funds to all whitelisted anons
         // based on varying schedules
 
