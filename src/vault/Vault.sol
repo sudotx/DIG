@@ -19,7 +19,7 @@ struct StrategyParams {
 
 // this should take funds from the funders of a pool
 // deposit into a pool, store them in the registery using registry magic
-// 
+//
 
 /// @notice Minimal ERC4626 tokenized Vault implementation.
 /// @author Forked from Solmate ERC4626 (https://github.com/transmissions11/solmate/blob/main/src/mixins/ERC4626.sol)
