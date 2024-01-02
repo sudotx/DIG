@@ -3,4 +3,9 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+rpc_endpoints = { sepolia = "https://api.zan.top/node/v1/eth/sepolia/public", optimism_goerli = "https://optimism-goerli.publicnode.com", base_goerli = "https://base-goerli.public.blastapi.io", arbitrum_sepolia = "https://sepolia-rollup.arbitrum.io/rpc" }
+
+# Sepolia	11155111
+# Base Goerli	84531
+# Optimism Goerli	420
+# Arbitrum Sepolia	421614

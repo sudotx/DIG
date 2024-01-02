@@ -2,6 +2,10 @@
   "wake.compiler.solc.remappings": [
     "ds-test/=lib/forge-std/lib/ds-test/src/",
     "forge-std/=lib/forge-std/src/",
-    "solady/=node_modules/solady/src/"
+    "solady/=node_modules/solady/src/",
+    "@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/",
+    "@solmate/src/=node_modules/solmate/src/",
+    "@chainlink/contracts-ccip/src/=node_modules/@chainlink/contracts-ccip/src/",
+    "@chainlink/contracts/src/=node_modules/@chainlink/contracts/src/"
   ]
 }

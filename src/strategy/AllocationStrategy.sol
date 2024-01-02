@@ -1,10 +1,10 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {BaseStrategy} from "src/strategy/BaseStrategy.sol";
 import {IAllo} from "src/interfaces/IAllo.sol";
 import {IRegistry} from "src/interfaces/IRegistry.sol";
 import {Metadata} from "src/libraries/Metadata.sol";
+import {BaseStrategy} from "./BaseStrategy.sol";
 
 // represents the nft held by the guardians, they can be allows to vote on who gets funded..
 // if not staked, it will be exempt. holders of the nft will also receive residual funds from the strategy
@@ -199,6 +199,7 @@ contract StealthStrategy is BaseStrategy {
     /// @param _allo The 'Allo' contract
     /// @param _name The name of the strategy
     constructor(address _allo, string memory _name) BaseStrategy(_allo, _name) {
+        // 0xB087535DB0df98fC4327136e897A5985E5Cfbd66 -- Allo implementation address
         // do some cool stuff here 🐱
         // set AllFather
     }
