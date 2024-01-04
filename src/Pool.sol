@@ -12,7 +12,7 @@ import {TimelockController} from "@openzeppelin/contracts/governance/TimelockCon
 import {Governor, IGovernor} from "@openzeppelin/contracts/governance/Governor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 import {IStrategy} from "./interfaces/IStrategy.sol";
-import {ERC20} from "@solmate/src/tokens/ERC20.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Vault} from "./vault/Vault.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import {Roles} from "./GovRoles.sol";
@@ -45,7 +45,7 @@ contract MyGovernor is
         GovernorVotes(IVotes(_token))
         GovernorTimelockControl(TimelockController(payable(_timelock)))
         GovernorSettings(initialVotingDelay, initialVotingPeriod, initialProposalThreshold)
-        Vault(ERC20(_token), "My Governor Vault", "MGG", s_strategy)
+        Vault(_token, "My Governor Vault", "MGG", s_strategy)
     {
         _setQuorum(initialQuorum);
         _grantRole(Roles.GOVERNOR, msg.sender);
