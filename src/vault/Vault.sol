@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity 0.8.19;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC4626} from "@solmate/src/mixins/ERC4626.sol";
@@ -32,14 +32,11 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
     event StrategyDeposit(IStrategy strategy, uint256 amount);
     event StrategyWithdrawal(IStrategy strategy, uint256 amount);
 
-    constructor(
-        ERC20 _asset,
-        string memory _name,
-        string memory _symbol,
-        StrategyParams memory strategy,
-        address destinationVaultManager,
-        address payable sourceVaultManager
-    ) ERC4626(_asset, _name, _symbol) Ownable() StealthStrategy(address(0), "") {
+    constructor(ERC20 _asset, string memory _name, string memory _symbol, StrategyParams memory strategy)
+        ERC4626(_asset, _name, _symbol)
+        Ownable()
+        StealthStrategy(address(0), "")
+    {
         s_strategy = strategy;
         s_totalAssetsInStrategy = 0;
     }
@@ -108,31 +105,6 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
 
         // return abi.decode(retData, (uint256));
         return 1;
-    }
-
-    // @note: If you use this function as is ensure you do not use the wrong destinationAddress.
-    // Otherwise, "bye bye shares!"
-    function sendSharesCrossChain(
-        address destinationAddress,
-        uint256 amount,
-        uint64 destinationChainSelector,
-        address destinationVaultManager
-    ) external payable {
-        // s_sourceVaultManager.sendShares(
-        //     destinationAddress, amount, destinationChainSelector, destinationVaultManager, msg.sender
-        // );
-        _burn(msg.sender, amount);
-    }
-
-    function getFeeEsimateSendSharesCrossChain(
-        address destinationAddress,
-        uint256 amount,
-        uint64 destinationChainSelector,
-        address destinationVaultManager
-    ) external returns (uint256) {
-        // return s_sourceVaultManager.estimateFeeForSendShares(
-        //     destinationAddress, amount, destinationChainSelector, destinationVaultManager
-        // );
     }
 
     // @dev just in case this contract receives ETH accidentally

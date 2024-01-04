@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.13;
+pragma solidity ^0.8.0;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
@@ -71,22 +71,11 @@ contract GuildToken is ERC20Burnable {
         ERC20._burn(from, amount);
     }
 
-    function transfer(address to, uint256 amount)
-        public
-        virtual
-        override(ERC20)
-        returns (bool)
-    {
+    function transfer(address to, uint256 amount) public virtual override(ERC20) returns (bool) {
         return ERC20.transfer(to, amount);
     }
 
-    function transferFrom(address from, address to, uint256 amount)
-        public
-        virtual
-        override(ERC20)
-        returns (bool)
-    {
+    function transferFrom(address from, address to, uint256 amount) public virtual override(ERC20) returns (bool) {
         return ERC20.transferFrom(from, to, amount);
     }
-
 }

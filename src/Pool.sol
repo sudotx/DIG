@@ -1,9 +1,8 @@
-
 // this controls how guardians allocate funds to knights, how funds are allocated to users, how winners are decided
 // governance is spread between guardians, initiative creators and normie users.
 
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity ^0.8.0;
 
 import {GovernorTimelockControl} from "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 import {GovernorCountingSimple} from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
@@ -46,7 +45,7 @@ contract MyGovernor is
         GovernorVotes(IVotes(_token))
         GovernorTimelockControl(TimelockController(payable(_timelock)))
         GovernorSettings(initialVotingDelay, initialVotingPeriod, initialProposalThreshold)
-        Vault(ERC20(_token), "My Governor Vault", "MGG", s_strategy, address(0), payable(address(0)))
+        Vault(ERC20(_token), "My Governor Vault", "MGG", s_strategy)
     {
         _setQuorum(initialQuorum);
         _grantRole(Roles.GOVERNOR, msg.sender);
@@ -159,7 +158,7 @@ contract MyGovernor is
     function supportsInterface(bytes4 interfaceId)
         public
         view
-        override(Governor, GovernorTimelockControl)
+        override(Governor, GovernorTimelockControl, AccessControlEnumerable)
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
