@@ -4,10 +4,7 @@
   "author": "sudotx <64108848+sudotx@users.noreply.github.com>",
   "license": "MIT",
   "dependencies": {
-    "@chainlink/contracts": "0.8.0",
-    "@chainlink/contracts-ccip": "^0.7.6",
     "@openzeppelin/contracts": "^4.7.0",
-    "@openzeppelin/contracts-upgradeable": "^4.9.2",
     "@prb/math": "^2.5.0",
     "solady": "^0.0.153",
     "solidity-bytes-utils": "^0.8.0",

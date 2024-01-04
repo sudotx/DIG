@@ -1,5 +1,9 @@
+
+// this controls how guardians allocate funds to knights, how funds are allocated to users, how winners are decided
+// governance is spread between guardians, initiative creators and normie users.
+
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.13;
+pragma solidity 0.8.19;
 
 import {GovernorTimelockControl} from "@openzeppelin/contracts/governance/extensions/GovernorTimelockControl.sol";
 import {GovernorCountingSimple} from "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
@@ -8,8 +12,21 @@ import {GovernorSettings} from "@openzeppelin/contracts/governance/extensions/Go
 import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 import {Governor, IGovernor} from "@openzeppelin/contracts/governance/Governor.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+import {IStrategy} from "./interfaces/IStrategy.sol";
+import {ERC20} from "@solmate/src/tokens/ERC20.sol";
+import {Vault} from "./vault/Vault.sol";
+import {AccessControlEnumerable} from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
+import {Roles} from "./GovRoles.sol";
 
-contract MyGovernor is Governor, GovernorVotes, GovernorTimelockControl, GovernorSettings, GovernorCountingSimple {
+contract MyGovernor is
+    Vault,
+    Governor,
+    GovernorVotes,
+    GovernorTimelockControl,
+    GovernorSettings,
+    GovernorCountingSimple,
+    AccessControlEnumerable
+{
     /// @notice Private storage variable for quorum (the minimum number of votes needed for a vote to pass).
     uint256 private _quorum;
 
@@ -24,12 +41,22 @@ contract MyGovernor is Governor, GovernorVotes, GovernorTimelockControl, Governo
         uint256 initialProposalThreshold,
         uint256 initialQuorum
     )
-        Governor("ECG Governor")
+        Governor("My Governor")
+        // votes will be via erc721, issued by the vault. when users deposit into the pool
         GovernorVotes(IVotes(_token))
         GovernorTimelockControl(TimelockController(payable(_timelock)))
         GovernorSettings(initialVotingDelay, initialVotingPeriod, initialProposalThreshold)
+        Vault(ERC20(_token), "My Governor Vault", "MGG", s_strategy, address(0), payable(address(0)))
     {
         _setQuorum(initialQuorum);
+        _grantRole(Roles.GOVERNOR, msg.sender);
+
+        _setRoleAdmin(Roles.GOVERNOR, Roles.GOVERNOR);
+        _setRoleAdmin(Roles.GUARDIAN, Roles.GOVERNOR);
+        _setRoleAdmin(Roles.GUILD_MINTER, Roles.GOVERNOR);
+        _setRoleAdmin(Roles.TIMELOCK_PROPOSER, Roles.GOVERNOR);
+        _setRoleAdmin(Roles.TIMELOCK_EXECUTOR, Roles.GOVERNOR);
+        _setRoleAdmin(Roles.TIMELOCK_CANCELLER, Roles.GOVERNOR);
     }
 
     /// ------------------------------------------------------------------------

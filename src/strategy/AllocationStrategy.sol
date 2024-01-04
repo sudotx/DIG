@@ -163,73 +163,114 @@ contract StealthStrategy is BaseStrategy {
         address[] Knights;
     }
 
-    /// @notice Flag to indicate whether to use the registry anchor or not.
-    bool public useRegistryAnchor;
+    /// ================================
+    /// ========== Storage =============
+    /// ================================
 
-    /// @notice Flag to indicate whether metadata is required or not.
+    // @notice Struct to hold the init params for the strategy
+    struct InitializeData {
+        bool registryGating;
+        bool metadataRequired;
+        bool grantAmountRequired;
+    }
+
+    /// ===============================
+    /// ========== Errors =============
+    /// ===============================
+
+    /// @notice Throws when the milestone is already accepted.
+    error MILESTONE_ALREADY_ACCEPTED();
+
+    /// @notice Throws when the allocation exceeds the pool amount.
+    error ALLOCATION_EXCEEDS_POOL_AMOUNT();
+
+    /// ===============================
+    /// ========== Events =============
+    /// ===============================
+
+    /// @notice Emitted for the registration of a recipient and the status is updated.
+    event RecipientStatusChanged(address recipientId, Status status);
+
+    /// @notice Emitted for the submission of a milestone.
+    event MilestoneSubmitted(address recipientId, uint256 milestoneId, Metadata metadata);
+
+    /// @notice Emitted for the status change of a milestone.
+    event MilestoneStatusChanged(address recipientId, uint256 milestoneId, Status status);
+
+    /// @notice Emitted for the milestones set.
+    event MilestonesSet(address recipientId, uint256 milestonesLength);
+    event MilestonesReviewed(address recipientId, Status status);
+
+    /// ================================
+    /// ========== Storage =============
+    /// ================================
+
+    /// @notice Flag to check if registry gating is enabled.
+    bool public registryGating;
+
+    /// @notice Flag to check if metadata is required.
     bool public metadataRequired;
 
-    /// @notice The accepted recipient who can submit milestones.
-    address public acceptedRecipientId;
+    /// @notice Flag to check if grant amount is required.
+    bool public grantAmountRequired;
 
-    /// @notice The registry contract interface.
+    /// @notice The 'Registry' contract interface.
     IRegistry private _registry;
 
-    /// @notice The maximum bid for the RFP pool.
-    uint256 public maxBid;
+    /// @notice The total amount allocated to grant/recipient.
+    uint256 public allocatedGrantAmount;
 
-    /// @notice The upcoming milestone which is to be paid.
-    uint256 public upcomingMilestone;
-
-    /// @notice Internal collection of recipients
-    address[] private _recipientIds;
-
-    /// @notice Collection of milestones submitted by the 'acceptedRecipientId'
-    Milestone[] public milestones;
+    /// @notice Internal collection of accepted recipients able to submit milestones
+    address[] private _acceptedRecipientIds;
 
     /// @notice This maps accepted recipients to their details
     /// @dev 'recipientId' to 'Recipient'
-    mapping(address => Recipient) internal _recipients;
+    mapping(address => Recipient) private _recipients;
+
+    /// @notice This maps accepted recipients to their milestones
+    /// @dev 'recipientId' to 'Milestone'
+    mapping(address => Milestone[]) public milestones;
+
+    /// @notice This maps accepted recipients to their upcoming milestone
+    /// @dev 'recipientId' to 'nextMilestone'
+    mapping(address => uint256) public upcomingMilestone;
 
     /// ===============================
     /// ======== Constructor ==========
     /// ===============================
 
-    /// @notice Constructor for the RFP Simple Strategy
+    /// @notice Constructor for the Direct Grants Simple Strategy
     /// @param _allo The 'Allo' contract
     /// @param _name The name of the strategy
-    constructor(address _allo, string memory _name) BaseStrategy(_allo, _name) {
-        // 0xB087535DB0df98fC4327136e897A5985E5Cfbd66 -- Allo implementation address
-        // do some cool stuff here 🐱
-        // set AllFather
-    }
+    constructor(address _allo, string memory _name) BaseStrategy(_allo, _name) {}
 
     /// ===============================
     /// ========= Initialize ==========
     /// ===============================
 
-    // @notice Initialize the strategy
+    /// @notice Initialize the strategy
     /// @param _poolId ID of the pool
     /// @param _data The data to be decoded
-    /// @custom:data (uint256 _maxBid, bool registryGating, bool metadataRequired)
+    /// @custom:data (bool registryGating, bool metadataRequired, bool grantAmountRequired)
     function initialize(uint256 _poolId, bytes memory _data) external virtual override {
-        (InitializeParams memory initializeParams) = abi.decode(_data, (InitializeParams));
-        __Strategy_init(_poolId, initializeParams);
+        (InitializeData memory initData) = abi.decode(_data, (InitializeData));
+        __DirectGrantsSimpleStrategy_init(_poolId, initData);
         emit Initialized(_poolId, _data);
     }
 
     /// @notice This initializes the BaseStrategy
     /// @dev You only need to pass the 'poolId' to initialize the BaseStrategy and the rest is specific to the strategy
-    /// @param _initializeParams The initialize params
-    function __Strategy_init(uint256 _poolId, InitializeParams memory _initializeParams) internal {
+    /// @param _poolId ID of the pool - required to initialize the BaseStrategy
+    /// @param _initData The init params for the strategy (bool registryGating, bool metadataRequired, bool grantAmountRequired)
+    function __DirectGrantsSimpleStrategy_init(uint256 _poolId, InitializeData memory _initData) internal {
         // Initialize the BaseStrategy
         __BaseStrategy_init(_poolId);
 
         // Set the strategy specific variables
-        useRegistryAnchor = _initializeParams.useRegistryAnchor;
-        metadataRequired = _initializeParams.metadataRequired;
+        registryGating = _initData.registryGating;
+        metadataRequired = _initData.metadataRequired;
+        grantAmountRequired = _initData.grantAmountRequired;
         _registry = allo.getRegistry();
-        _increaseMaxBid(_initializeParams.maxBid);
 
         // Set the pool to active - this is required for the strategy to work and distribute funds
         // NOTE: There may be some cases where you may want to not set this here, but will be strategy specific
@@ -247,140 +288,213 @@ contract StealthStrategy is BaseStrategy {
         return _getRecipient(_recipientId);
     }
 
-    /// @notice Checks if msg.sender is eligible for RFP allocation
-    /// @param _recipientId Id of the recipient
+    /// @notice Get recipient status
+    /// @dev The global 'Status' is used at the protocol level and most strategies will use this.
+    ///      todo: finish this
+    /// @param _recipientId ID of the recipient
+    /// @return Status Returns the global recipient status
     function _getRecipientStatus(address _recipientId) internal view override returns (Status) {
         return _getRecipient(_recipientId).recipientStatus;
     }
 
-    /// @notice Return the payout for acceptedRecipientId
-    function getPayouts(address[] memory, bytes[] memory) external view override returns (PayoutSummary[] memory) {
-        PayoutSummary[] memory payouts = new PayoutSummary[](1);
-        payouts[0] = _getPayout(acceptedRecipientId, "");
-
-        return payouts;
+    /// @notice Checks if address is eligible allocator.
+    /// @dev This is used to check if the allocator is a pool manager and able to allocate funds from the pool
+    /// @param _allocator Address of the allocator
+    /// @return 'true' if the allocator is a pool manager, otherwise false
+    function _isValidAllocator(address _allocator) internal view override returns (bool) {
+        return allo.isPoolManager(poolId, _allocator);
     }
 
-    /// @notice Get the milestone
+    /// @notice Get the status of the milestone of an recipient.
+    /// @dev This is used to check the status of the milestone of an recipient and is strategy specific
+    /// @param _recipientId ID of the recipient
     /// @param _milestoneId ID of the milestone
-    /// @return Milestone Returns the milestone
-    function getMilestone(uint256 _milestoneId) external view returns (Milestone memory) {
-        return milestones[_milestoneId];
+    /// @return Status Returns the status of the milestone using the 'Status' enum
+    function getMilestoneStatus(address _recipientId, uint256 _milestoneId) external view returns (Status) {
+        return milestones[_recipientId][_milestoneId].milestoneStatus;
     }
 
-    /// @notice Get the status of the milestone
-    /// @param _milestoneId Id of the milestone
-    function getMilestoneStatus(uint256 _milestoneId) external view returns (Status) {
-        return milestones[_milestoneId].milestoneStatus;
+    /// @notice Get the milestones.
+    /// @param _recipientId ID of the recipient
+    /// @return Milestone[] Returns the milestones for a 'recipientId'
+    function getMilestones(address _recipientId) external view returns (Milestone[] memory) {
+        return milestones[_recipientId];
     }
 
     /// ===============================
     /// ======= External/Custom =======
     /// ===============================
 
-    /// @notice Toggle the status between active and inactive.
-    /// @dev 'msg.sender' must be a pool manager to close the pool. Emits a 'PoolActive()' event.
-    /// @param _flag The flag to set the pool to active or inactive
-    function setPoolActive(bool _flag) external onlyPoolManager(msg.sender) {
-        _setPoolActive(_flag);
-    }
-
-    /// @notice Set the milestones for the acceptedRecipientId.
-    /// @dev 'msg.sender' must be a pool manager to set milestones. Emits 'MilestonesSet' event
-    /// @param _milestones Milestone[] The milestones to be set
-    function setMilestones(Milestone[] memory _milestones) external onlyPoolManager(msg.sender) {
-        if (milestones.length > 0) {
-            if (milestones[0].milestoneStatus != Status.None) revert MILESTONES_ALREADY_SET();
-            delete milestones;
+    /// @notice Set milestones for recipient.
+    /// @dev 'msg.sender' must be recipient creator or pool manager. Emits a 'MilestonesReviewed()' event.
+    /// @param _recipientId ID of the recipient
+    /// @param _milestones The milestones to be set
+    function setMilestones(address _recipientId, Milestone[] memory _milestones) external {
+        bool isRecipientCreator = (msg.sender == _recipientId) || _isProfileMember(_recipientId, msg.sender);
+        bool isPoolManager = allo.isPoolManager(poolId, msg.sender);
+        if (!isRecipientCreator && !isPoolManager) {
+            revert UNAUTHORIZED();
         }
 
-        uint256 totalAmountPercentage;
+        Recipient storage recipient = _recipients[_recipientId];
 
-        // Loop through the milestones and add them to the milestones array
-        uint256 milestonesLength = _milestones.length;
-        for (uint256 i; i < milestonesLength;) {
-            uint256 amountPercentage = _milestones[i].amountPercentage;
+        // Check if the recipient is accepted, otherwise revert
+        if (recipient.recipientStatus != Status.Accepted) {
+            revert RECIPIENT_NOT_ACCEPTED();
+        }
 
-            if (amountPercentage == 0) revert INVALID_MILESTONE();
+        // if (recipient.milestonesReviewStatus == Status.Accepted) {
+        //     revert MILESTONES_ALREADY_SET();
+        // }
 
-            totalAmountPercentage += amountPercentage;
-            _milestones[i].milestoneStatus = Status.None;
-            milestones.push(_milestones[i]);
+        _setMilestones(_recipientId, _milestones);
+
+        if (isPoolManager) {
+            // recipient.milestonesReviewStatus = Status.Accepted;
+            emit MilestonesReviewed(_recipientId, Status.Accepted);
+        }
+    }
+
+    /// @notice Set milestones of the recipient
+    /// @dev Emits a 'MilestonesReviewed()' event
+    /// @param _recipientId ID of the recipient
+    /// @param _status The status of the milestone review
+    function reviewSetMilestones(address _recipientId, Status _status) external onlyPoolManager(msg.sender) {
+        Recipient storage recipient = _recipients[_recipientId];
+
+        // Check if the recipient has any milestones, otherwise revert
+        if (milestones[_recipientId].length == 0) {
+            revert INVALID_MILESTONE();
+        }
+
+        // Check if the recipient is 'Accepted', otherwise revert
+        // if (recipient.milestonesReviewStatus == Status.Accepted) {
+        //     revert MILESTONES_ALREADY_SET();
+        // }
+
+        // Check if the status is 'Accepted' or 'Rejected', otherwise revert
+        if (_status == Status.Accepted || _status == Status.Rejected) {
+            // Set the status of the milestone review
+            // recipient.milestonesReviewStatus = _status;
+
+            // Emit event for the milestone review
+            emit MilestonesReviewed(_recipientId, _status);
+        }
+    }
+
+    /// @notice Submit milestone by the recipient.
+    /// @dev 'msg.sender' must be the 'recipientId' (this depends on whether your using registry gating) and must be a member
+    ///      of a 'Profile' to submit a milestone and '_recipientId'.
+    ///      must NOT be the same as 'msg.sender'. Emits a 'MilestonesSubmitted()' event.
+    /// @param _recipientId ID of the recipient
+    /// @param _metadata The proof of work
+    function submitMilestone(address _recipientId, uint256 _milestoneId, Metadata calldata _metadata) external {
+        // Check if the '_recipientId' is the same as 'msg.sender' and if it is NOT, revert. This
+        // also checks if the '_recipientId' is a member of the 'Profile' and if it is NOT, revert.
+        if (_recipientId != msg.sender && !_isProfileMember(_recipientId, msg.sender)) {
+            revert UNAUTHORIZED();
+        }
+
+        Recipient memory recipient = _recipients[_recipientId];
+
+        // Check if the recipient is 'Accepted', otherwise revert
+        if (recipient.recipientStatus != Status.Accepted) {
+            revert RECIPIENT_NOT_ACCEPTED();
+        }
+
+        Milestone[] storage recipientMilestones = milestones[_recipientId];
+
+        // Check if the milestone is the upcoming one
+        if (_milestoneId > recipientMilestones.length) {
+            revert INVALID_MILESTONE();
+        }
+
+        Milestone storage milestone = recipientMilestones[_milestoneId];
+
+        // Check if the milestone is accepted, otherwise revert
+        if (milestone.milestoneStatus == Status.Accepted) {
+            revert MILESTONE_ALREADY_ACCEPTED();
+        }
+
+        // Set the milestone metadata and status
+        milestone.metadata = _metadata;
+        milestone.milestoneStatus = Status.Pending;
+
+        // Emit event for the milestone submission
+        emit MilestoneSubmitted(_recipientId, _milestoneId, _metadata);
+    }
+
+    /// @notice Reject pending milestone of the recipient.
+    /// @dev 'msg.sender' must be a pool manager to reject a milestone. Emits a 'MilestonesStatusChanged()' event.
+    /// @param _recipientId ID of the recipient
+    /// @param _milestoneId ID of the milestone
+    function rejectMilestone(address _recipientId, uint256 _milestoneId) external onlyPoolManager(msg.sender) {
+        Milestone[] storage recipientMilestones = milestones[_recipientId];
+
+        // Check if the milestone is the upcoming one
+        if (_milestoneId > recipientMilestones.length) {
+            revert INVALID_MILESTONE();
+        }
+
+        Milestone storage milestone = recipientMilestones[_milestoneId];
+
+        // Check if the milestone is NOT 'Accepted' already, and revert if it is
+        if (milestone.milestoneStatus == Status.Accepted) {
+            revert MILESTONE_ALREADY_ACCEPTED();
+        }
+
+        // Set the milestone status to 'Rejected'
+        milestone.milestoneStatus = Status.Rejected;
+
+        // Emit event for the milestone rejection
+        emit MilestoneStatusChanged(_recipientId, _milestoneId, Status.Rejected);
+    }
+
+    /// @notice Set the status of the recipient to 'InReview'
+    /// @dev Emits a 'RecipientStatusChanged()' event
+    /// @param _recipientIds IDs of the recipients
+    function setRecipientStatusToInReview(address[] calldata _recipientIds) external onlyPoolManager(msg.sender) {
+        uint256 recipientLength = _recipientIds.length;
+        for (uint256 i; i < recipientLength;) {
+            address recipientId = _recipientIds[i];
+            _recipients[recipientId].recipientStatus = Status.InReview;
+
+            emit RecipientStatusChanged(recipientId, Status.InReview);
 
             unchecked {
                 i++;
             }
         }
-
-        // Check if the all milestone amount percentage totals to 1e18(100%)
-        if (totalAmountPercentage != 1e18) revert INVALID_MILESTONE();
-
-        emit MilestonesSet(milestonesLength);
     }
 
-    /// @notice Submit milestone by the acceptedRecipientId.
-    /// @dev 'msg.sender' should be the 'acceptedRecipientId' OR must be a member
-    ///      of a 'Profile' assuming that 'acceptedRecipientId' is profile on the registry
-    //       Emits a 'MilestonesSubmitted()' event.
-    /// @param _metadata The proof of work
-    function submitUpcomingMilestone(Metadata calldata _metadata) external {
-        // Check if the 'msg.sender' is the 'acceptedRecipientId' or
-        // 'acceptedRecipientId' is a profile on the Registry and sender is a member of the profile
-        if (acceptedRecipientId != msg.sender && !_isProfileMember(acceptedRecipientId, msg.sender)) {
-            revert UNAUTHORIZED();
-        }
-
-        // Check if the upcoming milestone is in fact upcoming
-        if (upcomingMilestone >= milestones.length) revert INVALID_MILESTONE();
-
-        // Get the milestone and update the metadata and status
-        Milestone storage milestone = milestones[upcomingMilestone];
-        milestone.metadata = _metadata;
-
-        // Set the milestone status to 'Pending' to indicate that the milestone is submitted
-        milestone.milestoneStatus = Status.Pending;
-
-        // Emit event for the milestone
-        emit MilstoneSubmitted(upcomingMilestone);
+    /// @notice Toggle the status between active and inactive.
+    /// @dev 'msg.sender' must be a pool manager to close the pool. Emits a 'PoolActive()' event.
+    /// @param _flag The flag to set the pool to active or inactive
+    function setPoolActive(bool _flag) external onlyPoolManager(msg.sender) {
+        _setPoolActive(_flag);
+        emit PoolActive(_flag);
     }
 
-    /// @notice Update max bid for RFP pool
-    /// @dev 'msg.sender' must be a pool manager to update the max bid.
-    /// @param _maxBid The max bid to be set
-    function increaseMaxBid(uint256 _maxBid) external onlyPoolManager(msg.sender) {
-        _increaseMaxBid(_maxBid);
-    }
+    /// @notice Withdraw funds from pool.
+    /// @dev 'msg.sender' must be a pool manager to withdraw funds.
+    /// @param _amount The amount to be withdrawn
+    function withdraw(uint256 _amount) external onlyPoolManager(msg.sender) onlyInactivePool {
+        // Decrement the pool amount
+        poolAmount -= _amount;
 
-    /// @notice Reject pending milestone submmited by the acceptedRecipientId.
-    /// @dev 'msg.sender' must be a pool manager to reject a milestone. Emits a 'MilestoneStatusChanged()' event.
-    /// @param _milestoneId ID of the milestone
-    function rejectMilestone(uint256 _milestoneId) external onlyPoolManager(msg.sender) {
-        // Check if the milestone status is pending
-        if (milestones[_milestoneId].milestoneStatus != Status.Pending) revert MILESTONE_NOT_PENDING();
-
-        milestones[_milestoneId].milestoneStatus = Status.Rejected;
-
-        emit MilestoneStatusChanged(_milestoneId, milestones[_milestoneId].milestoneStatus);
-    }
-
-    /// @notice Withdraw the tokens from the pool
-    /// @dev Callable by the pool manager
-    /// @param _token The token to withdraw
-    function withdraw(address _token) external onlyPoolManager(msg.sender) onlyInactivePool {
-        uint256 amount = _getBalance(_token, address(this));
-
-        // Transfer the tokens to the 'msg.sender' (pool manager calling function)
-        _transferAmount(_token, msg.sender, amount);
+        // Transfer the amount to the pool manager
+        _transferAmount(allo.getPool(poolId).token, msg.sender, _amount);
     }
 
     /// ====================================
     /// ============ Internal ==============
     /// ====================================
 
-    /// @notice Submit a proposal to RFP pool
+    /// @notice Register a recipient to the pool.
     /// @dev Emits a 'Registered()' event
     /// @param _data The data to be decoded
-    /// @custom:data (address registryAnchor, address recipientAddress, uint256 proposalBid, Metadata metadata)
+    /// @custom:data when 'registryGating' is 'true' -> (address recipientId, address recipientAddress, uint256 grantAmount, Metadata metadata)
+    ///              when 'registryGating' is 'false' -> (address recipientAddress, address registryAnchor, uint256 grantAmount, Metadata metadata)
     /// @param _sender The sender of the transaction
     /// @return recipientId The id of the recipient
     function _registerRecipient(bytes memory _data, address _sender)
@@ -389,140 +503,166 @@ contract StealthStrategy is BaseStrategy {
         onlyActivePool
         returns (address recipientId)
     {
-        bool isUsingRegistryAnchor;
         address recipientAddress;
         address registryAnchor;
-        uint256 proposalBid;
+        bool isUsingRegistryAnchor;
+        uint256 grantAmount;
         Metadata memory metadata;
 
-        //  @custom:data (address registryAnchor, address recipientAddress, uint256 proposalBid, Metadata metadata)
-        (registryAnchor, recipientAddress, proposalBid, metadata) =
-            abi.decode(_data, (address, address, uint256, Metadata));
+        // Decode '_data' depending on the 'registryGating' flag
+        /// @custom:data when 'true' -> (address recipientId, address recipientAddress, uint256 grantAmount, Metadata metadata)
+        if (registryGating) {
+            (recipientId, recipientAddress, grantAmount, metadata) =
+                abi.decode(_data, (address, address, uint256, Metadata));
 
-        // Check if the registry anchor is valid so we know whether to use it or not
-        isUsingRegistryAnchor = useRegistryAnchor || registryAnchor != address(0);
+            if (!_isProfileMember(recipientId, _sender)) {
+                revert UNAUTHORIZED();
+            }
+        } else {
+            /// @custom:data when 'false' -> (address recipientAddress, address registryAnchor, uint256 grantAmount, Metadata metadata)
+            (recipientAddress, registryAnchor, grantAmount, metadata) =
+                abi.decode(_data, (address, address, uint256, Metadata));
 
-        // Ternerary to set the recipient id based on whether or not we are using the 'registryAnchor' or '_sender'
-        recipientId = isUsingRegistryAnchor ? registryAnchor : _sender;
+            // Check if the registry anchor is valid so we know whether to use it or not
+            isUsingRegistryAnchor = registryAnchor != address(0);
 
-        // Checks if the '_sender' is a member of the profile 'anchor' being used and reverts if not
-        if (isUsingRegistryAnchor && !_isProfileMember(recipientId, _sender)) revert UNAUTHORIZED();
+            // Ternerary to set the recipient id based on whether or not we are using the 'registryAnchor' or '_sender'
+            recipientId = isUsingRegistryAnchor ? registryAnchor : _sender;
+            if (isUsingRegistryAnchor && !_isProfileMember(recipientId, _sender)) {
+                revert UNAUTHORIZED();
+            }
+        }
+
+        // Check if the grant amount is required and if it is, check if it is greater than 0, otherwise revert
+        if (grantAmountRequired && grantAmount == 0) {
+            revert INVALID_REGISTRATION();
+        }
+
+        // Check if the recipient is not already accepted, otherwise revert
+        if (_recipients[recipientId].recipientStatus == Status.Accepted) {
+            revert RECIPIENT_ALREADY_ACCEPTED();
+        }
 
         // Check if the metadata is required and if it is, check if it is valid, otherwise revert
         if (metadataRequired && (bytes(metadata.pointer).length == 0 || metadata.protocol == 0)) {
             revert INVALID_METADATA();
         }
 
-        if (proposalBid > maxBid) {
-            // If the proposal bid is greater than the max bid this will revert
-            revert EXCEEDING_MAX_BID();
-        } else if (proposalBid == 0) {
-            // If the proposal bid is 0, set it to the max bid
-            proposalBid = maxBid;
-        }
+        // Create the recipient instance
+        // Recipient memory recipient = Recipient({
+        //     recipientAddress: recipientAddress,
+        //     useRegistryAnchor: registryGating ? true : isUsingRegistryAnchor,
+        //     grantAmount: grantAmount,
+        //     metadata: metadata,
+        //     recipientStatus: Status.Pending,
+        //     milestonesReviewStatus: Status.Pending
+        // });
 
-        // If the recipient address is the zero address this will revert
-        if (recipientAddress == address(0)) revert RECIPIENT_ERROR(recipientId);
+        // Add the recipient to the accepted recipient ids mapping
+        // _recipients[recipientId] = recipient;
 
-        // Get the recipient
+        // Emit event for the registration
+        emit Registered(recipientId, _data, _sender);
+    }
+
+    /// @notice Allocate amount to recipent for direct grants.
+    /// @dev '_sender' must be a pool manager to allocate. Emits 'RecipientStatusChanged() and 'Allocated()' events.
+    /// @param _data The data to be decoded
+    /// @custom:data (address recipientId, Status recipientStatus, uint256 grantAmount)
+    /// @param _sender The sender of the allocation
+    function _allocate(bytes memory _data, address _sender) internal virtual override onlyPoolManager(_sender) {
+        // Decode the '_data'
+        (address recipientId, Status recipientStatus, uint256 grantAmount) =
+            abi.decode(_data, (address, Status, uint256));
+
         Recipient storage recipient = _recipients[recipientId];
 
-        if (recipient.recipientStatus == Status.None) {
-            // If the recipient status is 'None' add the recipient to the '_recipientIds' array
-            _recipientIds.push(recipientId);
-            emit Registered(recipientId, _data, _sender);
-        } else {
-            emit UpdatedRegistration(recipientId, _data, _sender);
+        if (upcomingMilestone[recipientId] != 0) {
+            revert MILESTONES_ALREADY_SET();
         }
 
-        // update the recipients data
-        recipient.recipientAddress = recipientAddress;
-        recipient.useRegistryAnchor = isUsingRegistryAnchor ? true : recipient.useRegistryAnchor;
-        recipient.proposalBid = proposalBid;
-        recipient.metadata = metadata;
-        recipient.recipientStatus = Status.Pending;
+        if (recipient.recipientStatus != Status.Accepted && recipientStatus == Status.Accepted) {
+            IAllo.Pool memory pool = allo.getPool(poolId);
+            allocatedGrantAmount += grantAmount;
+
+            // Check if the allocated grant amount exceeds the pool amount and reverts if it does
+            if (allocatedGrantAmount > poolAmount) {
+                revert ALLOCATION_EXCEEDS_POOL_AMOUNT();
+            }
+
+            // recipient.grantAmount = grantAmount;
+            recipient.recipientStatus = Status.Accepted;
+
+            // Emit event for the acceptance
+            emit RecipientStatusChanged(recipientId, Status.Accepted);
+
+            // Emit event for the allocation
+            // emit Allocated(recipientId, recipient.grantAmount, pool.token, _sender);
+        } else if (
+            recipient.recipientStatus != Status.Rejected // no need to reject twice
+                && recipientStatus == Status.Rejected
+        ) {
+            recipient.recipientStatus = Status.Rejected;
+
+            // Emit event for the rejection
+            emit RecipientStatusChanged(recipientId, Status.Rejected);
+        }
     }
 
-    /// @notice Select recipient for RFP allocation
-    /// @dev '_sender' must be a pool manager to allocate.
-    /// @param _data The data to be decoded
-    /// @param _sender The sender of the allocation
-    function _allocate(bytes memory _data, address _sender)
-        internal
-        virtual
-        override
-        onlyActivePool
-        onlyPoolManager(_sender)
-    {
-        uint256 finalProposalBid;
-        // Decode the '_data'
-        (acceptedRecipientId, finalProposalBid) = abi.decode(_data, (address, uint256));
-
-        Recipient storage recipient = _recipients[acceptedRecipientId];
-
-        if (acceptedRecipientId == address(0) || recipient.recipientStatus != Status.Pending) {
-            revert RECIPIENT_ERROR(acceptedRecipientId);
-        }
-
-        // Update status of acceptedRecipientId to accepted
-        recipient.recipientStatus = Status.Accepted;
-
-        if (recipient.proposalBid != finalProposalBid) {
-            // If the proposal bid is not equal to the final proposal bid this will revert
-            // This is to prevent the pool manager from decreasing the proposal bid
-            // or recipient from front running and increasing the proposal bid
-            revert INVALID();
-        }
-
-        _setPoolActive(false);
-
-        IAllo.Pool memory pool = allo.getPool(poolId);
-
-        // Emit event for the allocation
-        emit Allocated(acceptedRecipientId, finalProposalBid, pool.token, _sender);
-    }
-
-    /// @notice Distribute the upcoming milestone to acceptedRecipientId.
+    /// @notice Distribute the upcoming milestone to recipients.
     /// @dev '_sender' must be a pool manager to distribute.
+    /// @param _recipientIds The recipient ids of the distribution
     /// @param _sender The sender of the distribution
-    function _distribute(address[] memory, bytes memory, address _sender)
+    function _distribute(address[] memory _recipientIds, bytes memory, address _sender)
         internal
         virtual
         override
-        onlyInactivePool
         onlyPoolManager(_sender)
     {
-        // check to make sure there is a pending milestone
-        if (upcomingMilestone >= milestones.length) revert INVALID_MILESTONE();
+        uint256 recipientLength = _recipientIds.length;
+        for (uint256 i; i < recipientLength;) {
+            _distributeUpcomingMilestone(_recipientIds[i], _sender);
+            unchecked {
+                i++;
+            }
+        }
+    }
 
-        IAllo.Pool memory pool = allo.getPool(poolId);
-        Milestone storage milestone = milestones[upcomingMilestone];
-        Recipient memory recipient = _recipients[acceptedRecipientId];
+    /// @notice Distribute the upcoming milestone.
+    /// @dev Emits 'MilestoneStatusChanged() and 'Distributed()' events.
+    /// @param _recipientId The recipient of the distribution
+    /// @param _sender The sender of the distribution
+    function _distributeUpcomingMilestone(address _recipientId, address _sender) private {
+        uint256 milestoneToBeDistributed = upcomingMilestone[_recipientId];
+        Milestone[] storage recipientMilestones = milestones[_recipientId];
 
-        // Check if the milestone is pending
-        if (milestone.milestoneStatus != Status.Pending) revert INVALID_MILESTONE();
+        Recipient memory recipient = _recipients[_recipientId];
+        Milestone storage milestone = recipientMilestones[milestoneToBeDistributed];
+
+        // check if milestone is not rejected or already paid out
+        if (milestoneToBeDistributed > recipientMilestones.length || milestone.milestoneStatus != Status.Pending) {
+            revert INVALID_MILESTONE();
+        }
 
         // Calculate the amount to be distributed for the milestone
-        uint256 amount = (recipient.proposalBid * milestone.amountPercentage) / 1e18;
+        // uint256 amount = recipient.grantAmount * milestone.amountPercentage / 1e18;
 
         // Get the pool, subtract the amount and transfer to the recipient
-        poolAmount -= amount;
-        _transferAmount(pool.token, recipient.recipientAddress, amount);
+        IAllo.Pool memory pool = allo.getPool(poolId);
+
+        // poolAmount -= amount;
+        // _transferAmount(pool.token, recipient.recipientAddress, amount);
 
         // Set the milestone status to 'Accepted'
         milestone.milestoneStatus = Status.Accepted;
 
         // Increment the upcoming milestone
-        upcomingMilestone++;
+        upcomingMilestone[_recipientId]++;
 
         // Emit events for the milestone and the distribution
-        emit MilestoneStatusChanged(upcomingMilestone, Status.Accepted);
-        emit Distributed(acceptedRecipientId, recipient.recipientAddress, amount, _sender);
+        emit MilestoneStatusChanged(_recipientId, milestoneToBeDistributed, Status.Accepted);
+        // emit Distributed(_recipientId, recipient.recipientAddress, amount, _sender);
     }
-
-    /*//////////////////////////////////////////////////////////////
-                        INTERNAL/PRIVATE HELPERS
-    //////////////////////////////////////////////////////////////*/
 
     /// @notice Check if sender is a profile owner or member.
     /// @param _anchor Anchor of the profile
@@ -538,37 +678,54 @@ contract StealthStrategy is BaseStrategy {
     /// @return recipient Returns the recipient information
     function _getRecipient(address _recipientId) internal view returns (Recipient memory recipient) {
         recipient = _recipients[_recipientId];
-
-        if (acceptedRecipientId != address(0) && acceptedRecipientId != _recipientId) {
-            recipient.recipientStatus = recipient.recipientStatus > Status.None ? Status.Rejected : Status.None;
-        }
-    }
-
-    /// @notice Increase max bid for RFP pool
-    /// @param _maxBid The new max bid to be set
-    function _increaseMaxBid(uint256 _maxBid) internal {
-        // make sure the new max bid is greater than the current max bid
-        if (_maxBid < maxBid) revert AMOUNT_TOO_LOW();
-
-        maxBid = _maxBid;
-
-        // emit the new max mid
-        emit MaxBidIncreased(maxBid);
     }
 
     /// @notice Get the payout summary for the accepted recipient.
     /// @return Returns the payout summary for the accepted recipient
     function _getPayout(address _recipientId, bytes memory) internal view override returns (PayoutSummary memory) {
-        Recipient memory recipient = _recipients[_recipientId];
-        return PayoutSummary(recipient.recipientAddress, recipient.proposalBid);
+        Recipient memory recipient = _getRecipient(_recipientId);
+        // return PayoutSummary(recipient.recipientAddress, recipient.grantAmount);
     }
 
-    /// @notice Checks if address is eligible allocator.
-    /// @dev This is used to check if the allocator is a pool manager and able to allocate funds from the pool
-    /// @param _allocator Address of the allocator
-    /// @return 'true' if the allocator is a pool manager, otherwise false
-    function _isValidAllocator(address _allocator) internal view override returns (bool) {
-        return allo.isPoolManager(poolId, _allocator);
+    /// @notice Set the milestones for the recipient.
+    /// @param _recipientId ID of the recipient
+    /// @param _milestones The milestones to be set
+    function _setMilestones(address _recipientId, Milestone[] memory _milestones) internal {
+        uint256 totalAmountPercentage;
+
+        // Clear out the milestones and reset the index to 0
+        if (milestones[_recipientId].length > 0) {
+            delete milestones[_recipientId];
+        }
+
+        uint256 milestonesLength = _milestones.length;
+
+        // Loop through the milestones and set them
+        for (uint256 i; i < milestonesLength;) {
+            Milestone memory milestone = _milestones[i];
+
+            // Reverts if the milestone status is 'None'
+            if (milestone.milestoneStatus != Status.None) {
+                revert INVALID_MILESTONE();
+            }
+
+            // TODO: I see we check on line 649, but it seems we need to check when added it is NOT greater than 100%?
+            // Add the milestone percentage amount to the total percentage amount
+            totalAmountPercentage += milestone.amountPercentage;
+
+            // Add the milestone to the recipient's milestones
+            milestones[_recipientId].push(milestone);
+
+            unchecked {
+                i++;
+            }
+        }
+
+        if (totalAmountPercentage != 1e18) {
+            revert INVALID_MILESTONE();
+        }
+
+        emit MilestonesSet(_recipientId, milestonesLength);
     }
 
     // this should house the main functionality for slashing, distributing tokens as well as
@@ -643,7 +800,4 @@ contract StealthStrategy is BaseStrategy {
 
         // can be called by the owner of the contract. which is the super admin
     }
-
-    /// @notice This contract should be able to receive native token
-    receive() external payable {}
 }

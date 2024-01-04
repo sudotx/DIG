@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import {DestinationVaultManager} from "../cross-chain-logic/DestinationVaultmanager.sol";
-import {SourceVaultManager} from "../cross-chain-logic/SourceVaultManager.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC4626} from "@solmate/src/mixins/ERC4626.sol";
 import {IStrategy} from "../interfaces/IStrategy.sol";
 import {ERC20} from "@solmate/src/tokens/ERC20.sol";
+import {StealthStrategy} from "../strategy/AllocationStrategy.sol";
 
 error Vault_CouldNotWithdrawFromStrategy(address sender, address asset, address yieldStrategyTarget, uint256 amount);
 error Vault_CouldNotDepositToStrategy(address sender, address asset, address yieldStrategyTarget, uint256 amount);
@@ -23,12 +22,9 @@ struct StrategyParams {
 
 /// @notice Minimal ERC4626 tokenized Vault implementation.
 /// @author Forked from Solmate ERC4626 (https://github.com/transmissions11/solmate/blob/main/src/mixins/ERC4626.sol)
-contract Vault is ERC4626, Ownable {
+contract Vault is ERC4626, Ownable, StealthStrategy {
     StrategyParams public s_strategy;
     uint256 public s_totalAssetsInStrategy;
-
-    DestinationVaultManager public s_destinationVaultManager;
-    SourceVaultManager public s_sourceVaultManager;
 
     /*//////////////////////////////////////////////////////////////
                         EVENTS
@@ -43,11 +39,9 @@ contract Vault is ERC4626, Ownable {
         StrategyParams memory strategy,
         address destinationVaultManager,
         address payable sourceVaultManager
-    ) ERC4626(_asset, _name, _symbol) Ownable() {
+    ) ERC4626(_asset, _name, _symbol) Ownable() StealthStrategy(address(0), "") {
         s_strategy = strategy;
         s_totalAssetsInStrategy = 0;
-        s_destinationVaultManager = DestinationVaultManager(destinationVaultManager);
-        s_sourceVaultManager = SourceVaultManager(sourceVaultManager);
     }
 
     // @dev Tracks assets owned by the vault plus assets in the strategy.
@@ -116,30 +110,6 @@ contract Vault is ERC4626, Ownable {
         return 1;
     }
 
-    /*//////////////////////////////////////////////////////////////
-                        Cross Chain Logic: Untested
-    //////////////////////////////////////////////////////////////*/
-
-    modifier onlyDestinationVaultManager() {
-        require(
-            msg.sender == address(s_destinationVaultManager),
-            "Vault: Only Destination Vault Manager can call this function"
-        );
-        _;
-    }
-
-    function setDestinationVaultManager(address destinationVaultManager) external onlyOwner {
-        s_destinationVaultManager = DestinationVaultManager(destinationVaultManager);
-    }
-
-    function setSourceVaultManager(address payable sourceVaultManager) external onlyOwner {
-        s_sourceVaultManager = SourceVaultManager(sourceVaultManager);
-    }
-
-    function crossChainMint(address destinationAddress, uint256 amount) external onlyDestinationVaultManager {
-        _mint(destinationAddress, amount);
-    }
-
     // @note: If you use this function as is ensure you do not use the wrong destinationAddress.
     // Otherwise, "bye bye shares!"
     function sendSharesCrossChain(
@@ -148,9 +118,9 @@ contract Vault is ERC4626, Ownable {
         uint64 destinationChainSelector,
         address destinationVaultManager
     ) external payable {
-        s_sourceVaultManager.sendShares(
-            destinationAddress, amount, destinationChainSelector, destinationVaultManager, msg.sender
-        );
+        // s_sourceVaultManager.sendShares(
+        //     destinationAddress, amount, destinationChainSelector, destinationVaultManager, msg.sender
+        // );
         _burn(msg.sender, amount);
     }
 
@@ -160,9 +130,9 @@ contract Vault is ERC4626, Ownable {
         uint64 destinationChainSelector,
         address destinationVaultManager
     ) external returns (uint256) {
-        return s_sourceVaultManager.estimateFeeForSendShares(
-            destinationAddress, amount, destinationChainSelector, destinationVaultManager
-        );
+        // return s_sourceVaultManager.estimateFeeForSendShares(
+        //     destinationAddress, amount, destinationChainSelector, destinationVaultManager
+        // );
     }
 
     // @dev just in case this contract receives ETH accidentally
