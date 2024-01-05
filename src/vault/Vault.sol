@@ -7,7 +7,6 @@ import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.so
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IStrategy} from "../interfaces/IStrategy.sol";
 import {StealthStrategy} from "../strategy/AllocationStrategy.sol";
-
 import {Roles} from "../GovRoles.sol";
 
 error Vault_CouldNotWithdrawFromStrategy(address sender, address asset, address yieldStrategyTarget, uint256 amount);
@@ -27,7 +26,7 @@ struct StrategyParams {
 contract Vault is ERC4626, Ownable, StealthStrategy {
     StrategyParams public s_strategy;
 
-    address public constant ALLO = 0xB087535DB0df98fC4327136e897A5985E5Cfbd66; // allo implementation address
+    address public constant ALLO = 0x1133eA7Af70876e64665ecD07C0A0476d09465a1; // allo proxy address
     uint256 public s_totalAssetsInStrategy;
 
     /*//////////////////////////////////////////////////////////////
@@ -40,7 +39,7 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
         ERC4626(IERC20(_asset))
         ERC20(_name, _symbol)
         Ownable()
-        StealthStrategy(ALLO, "GovStrategy")
+        StealthStrategy(ALLO, "StealthStrategy")
     {
         s_strategy = strategy;
         s_totalAssetsInStrategy = 0;
@@ -100,18 +99,6 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
     function totalAssets() public view override returns (uint256) {
         return IERC20(asset()).balanceOf(address(this)) + s_totalAssetsInStrategy;
     }
-
-    /*//////////////////////////////////////////////////////////////
-                        Internal Hooks Logic
-    //////////////////////////////////////////////////////////////*/
-
-    // function beforeWithdraw(uint256 assets, uint256 /*shares*/ ) internal override after_updateTotalAssetsInStrategy {
-    //     _withdrawFromStrategy(assets);
-    // }
-
-    // function afterDeposit(uint256 assets, uint256 /*shares*/ ) internal override after_updateTotalAssetsInStrategy {
-    //     _depositToStrategy(assets);
-    // }
 
     // distribute to knights
     function _withdrawFromStrategy(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {

@@ -96,8 +96,6 @@ contract StealthStrategy is BaseStrategy {
                             PROPOSED ACTORS
     //////////////////////////////////////////////////////////////*/
 
-    // create a lot of initiatives, pay a fee to create to avoid spamming
-
     // this is the attached fee for an initative that can be set on the decision of the guardians
     uint256 feeForInitiative;
 
@@ -216,8 +214,7 @@ contract StealthStrategy is BaseStrategy {
         registryGating = _initData.registryGating;
         metadataRequired = _initData.metadataRequired;
         grantAmountRequired = _initData.grantAmountRequired;
-        _registry = IAllo(address(0)).getRegistry();
-        // _registry = IAllo(allo).getRegistry();
+        _registry = allo.getRegistry();
 
         // Set the pool to active - this is required for the strategy to work and distribute funds
         // NOTE: There may be some cases where you may want to not set this here, but will be strategy specific
@@ -290,43 +287,7 @@ contract StealthStrategy is BaseStrategy {
             revert RECIPIENT_NOT_ACCEPTED();
         }
 
-        // if (recipient.milestonesReviewStatus == Status.Accepted) {
-        //     revert MILESTONES_ALREADY_SET();
-        // }
-
         _setMilestones(_recipientId, _milestones);
-
-        if (isPoolManager) {
-            // recipient.milestonesReviewStatus = Status.Accepted;
-            emit MilestonesReviewed(_recipientId, Status.Accepted);
-        }
-    }
-
-    /// @notice Set milestones of the recipient
-    /// @dev Emits a 'MilestonesReviewed()' event
-    /// @param _recipientId ID of the recipient
-    /// @param _status The status of the milestone review
-    function reviewSetMilestones(address _recipientId, Status _status) external onlyPoolManager(msg.sender) {
-        Recipient storage recipient = _recipients[_recipientId];
-
-        // Check if the recipient has any milestones, otherwise revert
-        if (milestones[_recipientId].length == 0) {
-            revert INVALID_MILESTONE();
-        }
-
-        // Check if the recipient is 'Accepted', otherwise revert
-        // if (recipient.milestonesReviewStatus == Status.Accepted) {
-        //     revert MILESTONES_ALREADY_SET();
-        // }
-
-        // Check if the status is 'Accepted' or 'Rejected', otherwise revert
-        if (_status == Status.Accepted || _status == Status.Rejected) {
-            // Set the status of the milestone review
-            // recipient.milestonesReviewStatus = _status;
-
-            // Emit event for the milestone review
-            emit MilestonesReviewed(_recipientId, _status);
-        }
     }
 
     /// @notice Submit milestone by the recipient.
@@ -496,17 +457,16 @@ contract StealthStrategy is BaseStrategy {
         }
 
         // Create the recipient instance
-        // Recipient memory recipient = Recipient({
-        //     recipientAddress: recipientAddress,
-        //     useRegistryAnchor: registryGating ? true : isUsingRegistryAnchor,
-        //     grantAmount: grantAmount,
-        //     metadata: metadata,
-        //     recipientStatus: Status.Pending,
-        //     milestonesReviewStatus: Status.Pending
-        // });
+        Recipient memory recipient = Recipient({
+            useRegistryAnchor: registryGating ? true : isUsingRegistryAnchor,
+            recipientAddress: recipientAddress,
+            proposalBid: 1,
+            recipientStatus: Status.Pending,
+            metadata: metadata
+        });
 
         // Add the recipient to the accepted recipient ids mapping
-        // _recipients[recipientId] = recipient;
+        _recipients[recipientId] = recipient;
 
         // Emit event for the registration
         emit Registered(recipientId, _data, _sender);
@@ -544,7 +504,7 @@ contract StealthStrategy is BaseStrategy {
             emit RecipientStatusChanged(recipientId, Status.Accepted);
 
             // Emit event for the allocation
-            // emit Allocated(recipientId, recipient.grantAmount, pool.token, _sender);
+            emit Allocated(recipientId, 0, pool.token, _sender);
         } else if (
             recipient.recipientStatus != Status.Rejected // no need to reject twice
                 && recipientStatus == Status.Rejected
@@ -592,13 +552,13 @@ contract StealthStrategy is BaseStrategy {
         }
 
         // Calculate the amount to be distributed for the milestone
-        // uint256 amount = recipient.grantAmount * milestone.amountPercentage / 1e18;
+        uint256 amount = recipient.proposalBid * milestone.amountPercentage / 1e18;
 
         // Get the pool, subtract the amount and transfer to the recipient
         IAllo.Pool memory pool = allo.getPool(poolId);
 
-        // poolAmount -= amount;
-        // _transferAmount(pool.token, recipient.recipientAddress, amount);
+        poolAmount -= amount;
+        _transferAmount(pool.token, recipient.recipientAddress, amount);
 
         // Set the milestone status to 'Accepted'
         milestone.milestoneStatus = Status.Accepted;
@@ -608,7 +568,7 @@ contract StealthStrategy is BaseStrategy {
 
         // Emit events for the milestone and the distribution
         emit MilestoneStatusChanged(_recipientId, milestoneToBeDistributed, Status.Accepted);
-        // emit Distributed(_recipientId, recipient.recipientAddress, amount, _sender);
+        emit Distributed(_recipientId, recipient.recipientAddress, amount, _sender);
     }
 
     /// @notice Check if sender is a profile owner or member.
@@ -631,7 +591,7 @@ contract StealthStrategy is BaseStrategy {
     /// @return Returns the payout summary for the accepted recipient
     function _getPayout(address _recipientId, bytes memory) internal view override returns (PayoutSummary memory) {
         Recipient memory recipient = _getRecipient(_recipientId);
-        // return PayoutSummary(recipient.recipientAddress, recipient.grantAmount);
+        return PayoutSummary(recipient.recipientAddress, recipient.proposalBid);
     }
 
     /// @notice Set the milestones for the recipient.
