@@ -17,7 +17,13 @@ import {Vault} from "./vault/Vault.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import {Roles} from "./GovRoles.sol";
 
-contract MyGovernor is
+// play with governance tokens here!!
+
+// forwards calls to allocation strategy to release funds. 
+
+// proposals made here from tally, then pushed along by guardians, then funded and assigned to knights via milestones.
+
+contract Pantheon is
     Vault,
     Governor,
     GovernorVotes,
@@ -52,10 +58,6 @@ contract MyGovernor is
 
         _setRoleAdmin(Roles.GOVERNOR, Roles.GOVERNOR);
         _setRoleAdmin(Roles.GUARDIAN, Roles.GOVERNOR);
-        _setRoleAdmin(Roles.GUILD_MINTER, Roles.GOVERNOR);
-        _setRoleAdmin(Roles.TIMELOCK_PROPOSER, Roles.GOVERNOR);
-        _setRoleAdmin(Roles.TIMELOCK_EXECUTOR, Roles.GOVERNOR);
-        _setRoleAdmin(Roles.TIMELOCK_CANCELLER, Roles.GOVERNOR);
     }
 
     /// ------------------------------------------------------------------------

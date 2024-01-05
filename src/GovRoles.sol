@@ -13,19 +13,4 @@ library Roles {
 
     /// @notice the protector role. Can pause contracts and revoke roles in an emergency.
     bytes32 internal constant GUARDIAN = keccak256("GUARDIAN_ROLE");
-
-    /// @notice can mint GUILD arbitrarily
-    bytes32 internal constant GUILD_MINTER = keccak256("GUILD_MINTER_ROLE");
-
-    /// ----------- Timelock management ------------------------
-    /// The hashes are the same as OpenZeppelins's roles in TimelockController
-
-    /// @notice can propose new actions in timelocks
-    bytes32 internal constant TIMELOCK_PROPOSER = keccak256("PROPOSER_ROLE");
-
-    /// @notice can execute actions in timelocks after their delay
-    bytes32 internal constant TIMELOCK_EXECUTOR = keccak256("EXECUTOR_ROLE");
-
-    /// @notice can cancel actions in timelocks
-    bytes32 internal constant TIMELOCK_CANCELLER = keccak256("CANCELLER_ROLE");
 }

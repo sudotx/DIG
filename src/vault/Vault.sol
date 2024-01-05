@@ -23,10 +23,7 @@ struct StrategyParams {
 // deposit into a pool, store them in the registery using registry magic
 
 // the share token acts as the governance tokens, so users get a proportional share to what they deposit in
-//
 
-/// @notice Minimal ERC4626 tokenized Vault implementation.
-/// @author Forked from Solmate ERC4626 (https://github.com/transmissions11/solmate/blob/main/src/mixins/ERC4626.sol)
 contract Vault is ERC4626, Ownable, StealthStrategy {
     StrategyParams public s_strategy;
 
@@ -93,7 +90,7 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice mint new tokens to the target address
-    function mint(address to, uint256 amount) external onlyCoreRole(Roles.GUILD_MINTER) {
+    function mint(address to, uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {
         _mint(to, amount);
     }
 
