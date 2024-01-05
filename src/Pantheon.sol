@@ -46,6 +46,11 @@ contract Pantheon is
     // from thier balances on the platform, these funds are used to fund the general pool of the system
 
     // they can be anyone, any concerned party looking to deploy capital to a private or good that is relevant to them
+
+    /*//////////////////////////////////////////////////////////////
+                            PROPOSED ACTORS
+    //////////////////////////////////////////////////////////////*/
+
     address[] private Voters;
 
     // theses are delegated users that can perform constant votes to the direction of the system.

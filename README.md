@@ -22,7 +22,7 @@ Key Features
 
 Getting Started
 
-To begin using DIG, follow these steps:
+To begin using DIG, follow these steps
 
     Initiative Creation: Initiative creators propose tasks and allocate grants through the DIG governance system. Clearly outline the scope, deliverables, and grant amount.
 
@@ -34,7 +34,7 @@ To begin using DIG, follow these steps:
 
 Ideals
 
-DIG hopes to incorporate practices around:
+DIG hopes to incorporate practices around
 
     Smart Contract Audits: All components will always be availalble for any member to audit the code, and fund structure setup by the Knights, Guardians and any Protocol Custodian.
 
@@ -48,17 +48,15 @@ Roadmap
 
     Phase 2 - Continued MVP Development based on feedback from Community, Current Industry Players
 
-    Phase 3 - Security Audits: Conduct comprehensive security audits to ensure the robustness of the system.
+    Phase 3 - Audit: Conduct comprehensive security audits to ensure the robustness of the system.
 
     Phase 4 - Mainnet Launch: Deploy DIG on the mainnet, allowing users to actively participate in the decentralized governance and grant allocation process.
 
-Join the Community
-
-Stay connected with the our community for updates, discussions, and collaboration opportunities:
+Stay connected with us for updates, discussions, and collaboration opportunities:
 
 Contributors:
 @sudotx
 
-DIG is an open-source project driven by an idea of democratizing onchain fund allocation. Join us in shaping the future of decentralized grant allocation.
+DIG is an open-source project for the Allo on Arbitrum hackathon driven by the idea of democratizing onchain fund allocation.
 
-Happy hacking with us!
+Join us in shaping the future.

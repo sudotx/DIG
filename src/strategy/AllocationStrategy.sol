@@ -6,16 +6,15 @@ import {IRegistry} from "src/interfaces/IRegistry.sol";
 import {Metadata} from "src/libraries/Metadata.sol";
 import {BaseStrategy} from "./BaseStrategy.sol";
 
+import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+
 // represents the nft held by the guardians, they can be allows to vote on who gets funded..
 // if not staked, it will be exempt. holders of the nft will also receive residual funds from the strategy
 
-// import sablier to stream funds
-// import hats to form a commitee of guardians
-
 contract StealthStrategy is BaseStrategy {
-    /// ================================
-    /// ========== Struct ==============
-    /// ================================
+    /*//////////////////////////////////////////////////////////////
+                                STRUCTS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Stores the details of the recipients.
     struct Recipient {
@@ -35,91 +34,17 @@ contract StealthStrategy is BaseStrategy {
         Status milestoneStatus;
     }
 
-    /// @notice Stores the details needed for initializing strategy
-    struct InitializeParams {
-        uint256 maxBid;
-        bool useRegistryAnchor;
-        bool metadataRequired;
-    }
+    IVotes public GoverannceToken;
 
-    /// ===============================
-    /// ========== Errors =============
-    /// ===============================
+    /*//////////////////////////////////////////////////////////////
+                                ERRORS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Thrown when the milestone is invalid
     error INVALID_MILESTONE();
 
-    /// @notice Thrown when the milestone is not pending
-    error MILESTONE_NOT_PENDING();
-
-    /// @notice Thrown when the proposal bid exceeds maximum bid
-    error EXCEEDING_MAX_BID();
-
     /// @notice Thrown when the milestone are already approved and cannot be changed
     error MILESTONES_ALREADY_SET();
-
-    /// @notice Thrown when the pool manager attempts to the lower the max bid
-    error AMOUNT_TOO_LOW();
-
-    /// ===============================
-    /// ========== Events =============
-    /// ===============================
-
-    /// @notice Emitted when the maximum bid is increased.
-    /// @param maxBid The new maximum bid
-    event MaxBidIncreased(uint256 maxBid);
-
-    /// @notice Emitted when a milestone is submitted.
-    /// @param milestoneId Id of the milestone
-    event MilstoneSubmitted(uint256 milestoneId);
-
-    /// @notice Emitted for the status change of a milestone.
-    /// @param milestoneId Id of the milestone
-    /// @param status Status of the milestone
-    event MilestoneStatusChanged(uint256 milestoneId, Status status);
-
-    /// @notice Emitted when milestones are set.
-    /// @param milestonesLength Count of milestones
-    event MilestonesSet(uint256 milestonesLength);
-
-    /// @notice Emitted when a recipient updates their registration
-    /// @param recipientId Id of the recipient
-    /// @param data The encoded data - (address recipientId, address recipientAddress, Metadata metadata)
-    /// @param sender The sender of the transaction
-    event UpdatedRegistration(address indexed recipientId, bytes data, address sender);
-
-    /// ================================
-    /// ========== Storage =============
-    /// ================================
-
-    /*//////////////////////////////////////////////////////////////
-                            PROPOSED ACTORS
-    //////////////////////////////////////////////////////////////*/
-
-    // this is the attached fee for an initative that can be set on the decision of the guardians
-    uint256 feeForInitiative;
-
-    // agreed upon time funds can stay in the pool for unstreamed, before being sent back to all who funded the initiative
-    uint256 amountOfTimeUnusedFundsStayInThePool;
-
-    // maximum ammount of funds that can be withdrawn from an intiative
-    // agreed on by community
-    uint256 maxWithdrawableFunds;
-
-    /// ================================
-    /// ========== Storage =============
-    /// ================================
-
-    // @notice Struct to hold the init params for the strategy
-    struct InitializeData {
-        bool registryGating;
-        bool metadataRequired;
-        bool grantAmountRequired;
-    }
-
-    /// ===============================
-    /// ========== Errors =============
-    /// ===============================
 
     /// @notice Throws when the milestone is already accepted.
     error MILESTONE_ALREADY_ACCEPTED();
@@ -127,9 +52,9 @@ contract StealthStrategy is BaseStrategy {
     /// @notice Throws when the allocation exceeds the pool amount.
     error ALLOCATION_EXCEEDS_POOL_AMOUNT();
 
-    /// ===============================
-    /// ========== Events =============
-    /// ===============================
+    /*//////////////////////////////////////////////////////////////
+                                EVENTS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Emitted for the registration of a recipient and the status is updated.
     event RecipientStatusChanged(address recipientId, Status status);
@@ -142,11 +67,18 @@ contract StealthStrategy is BaseStrategy {
 
     /// @notice Emitted for the milestones set.
     event MilestonesSet(address recipientId, uint256 milestonesLength);
-    event MilestonesReviewed(address recipientId, Status status);
 
-    /// ================================
-    /// ========== Storage =============
-    /// ================================
+    /*//////////////////////////////////////////////////////////////
+                        STORAGE VARIABLES
+    //////////////////////////////////////////////////////////////*/
+
+    // @notice Struct to hold the init params for the strategy
+    struct InitializeData {
+        address GovernanceToken;
+        bool registryGating;
+        bool metadataRequired;
+        bool grantAmountRequired;
+    }
 
     /// @notice Flag to check if registry gating is enabled.
     bool public registryGating;
@@ -164,9 +96,6 @@ contract StealthStrategy is BaseStrategy {
     /// @notice The total amount allocated to grant/recipient.
     uint256 public allocatedGrantAmount;
 
-    /// @notice Internal collection of accepted recipients able to submit milestones
-    address[] private _acceptedRecipientIds;
-
     /// @notice This maps accepted recipients to their details
     /// @dev 'recipientId' to 'Recipient'
     mapping(address => Recipient) private _recipients;
@@ -179,18 +108,18 @@ contract StealthStrategy is BaseStrategy {
     /// @dev 'recipientId' to 'nextMilestone'
     mapping(address => uint256) public upcomingMilestone;
 
-    /// ===============================
-    /// ======== Constructor ==========
-    /// ===============================
+    /*//////////////////////////////////////////////////////////////
+                            CONSTRUCTOR
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Constructor for the Direct Grants Simple Strategy
     /// @param _allo The 'Allo' contract
     /// @param _name The name of the strategy
     constructor(address _allo, string memory _name) BaseStrategy(_allo, _name) {}
 
-    /// ===============================
-    /// ========= Initialize ==========
-    /// ===============================
+    /*//////////////////////////////////////////////////////////////
+                            INITIALIZE
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Initialize the strategy
     /// @param _poolId ID of the pool
@@ -210,6 +139,8 @@ contract StealthStrategy is BaseStrategy {
         // Initialize the BaseStrategy
         __BaseStrategy_init(_poolId);
 
+        GoverannceToken = IVotes(_initData.GovernanceToken);
+
         // Set the strategy specific variables
         registryGating = _initData.registryGating;
         metadataRequired = _initData.metadataRequired;
@@ -221,9 +152,9 @@ contract StealthStrategy is BaseStrategy {
         _setPoolActive(true);
     }
 
-    /// ===============================
-    /// ============ Views ============
-    /// ===============================
+    /*//////////////////////////////////////////////////////////////
+                            VIEW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Get the recipient
     /// @param _recipientId ID of the recipient
@@ -234,7 +165,6 @@ contract StealthStrategy is BaseStrategy {
 
     /// @notice Get recipient status
     /// @dev The global 'Status' is used at the protocol level and most strategies will use this.
-    ///      todo: finish this
     /// @param _recipientId ID of the recipient
     /// @return Status Returns the global recipient status
     function _getRecipientStatus(address _recipientId) internal view override returns (Status) {
@@ -265,9 +195,9 @@ contract StealthStrategy is BaseStrategy {
         return milestones[_recipientId];
     }
 
-    /// ===============================
-    /// ======= External/Custom =======
-    /// ===============================
+    /*//////////////////////////////////////////////////////////////
+                        EXTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Set milestones for recipient.
     /// @dev 'msg.sender' must be recipient creator or pool manager. Emits a 'MilestonesReviewed()' event.
@@ -394,9 +324,9 @@ contract StealthStrategy is BaseStrategy {
         _transferAmount(allo.getPool(poolId).token, msg.sender, _amount);
     }
 
-    /// ====================================
-    /// ============ Internal ==============
-    /// ====================================
+    /*//////////////////////////////////////////////////////////////
+                        INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Register a recipient to the pool.
     /// @dev Emits a 'Registered()' event
@@ -535,42 +465,6 @@ contract StealthStrategy is BaseStrategy {
         }
     }
 
-    /// @notice Distribute the upcoming milestone.
-    /// @dev Emits 'MilestoneStatusChanged() and 'Distributed()' events.
-    /// @param _recipientId The recipient of the distribution
-    /// @param _sender The sender of the distribution
-    function _distributeUpcomingMilestone(address _recipientId, address _sender) private {
-        uint256 milestoneToBeDistributed = upcomingMilestone[_recipientId];
-        Milestone[] storage recipientMilestones = milestones[_recipientId];
-
-        Recipient memory recipient = _recipients[_recipientId];
-        Milestone storage milestone = recipientMilestones[milestoneToBeDistributed];
-
-        // check if milestone is not rejected or already paid out
-        if (milestoneToBeDistributed > recipientMilestones.length || milestone.milestoneStatus != Status.Pending) {
-            revert INVALID_MILESTONE();
-        }
-
-        // Calculate the amount to be distributed for the milestone
-        uint256 amount = recipient.proposalBid * milestone.amountPercentage / 1e18;
-
-        // Get the pool, subtract the amount and transfer to the recipient
-        IAllo.Pool memory pool = allo.getPool(poolId);
-
-        poolAmount -= amount;
-        _transferAmount(pool.token, recipient.recipientAddress, amount);
-
-        // Set the milestone status to 'Accepted'
-        milestone.milestoneStatus = Status.Accepted;
-
-        // Increment the upcoming milestone
-        upcomingMilestone[_recipientId]++;
-
-        // Emit events for the milestone and the distribution
-        emit MilestoneStatusChanged(_recipientId, milestoneToBeDistributed, Status.Accepted);
-        emit Distributed(_recipientId, recipient.recipientAddress, amount, _sender);
-    }
-
     /// @notice Check if sender is a profile owner or member.
     /// @param _anchor Anchor of the profile
     /// @param _sender The sender of the transaction
@@ -633,5 +527,45 @@ contract StealthStrategy is BaseStrategy {
         }
 
         emit MilestonesSet(_recipientId, milestonesLength);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                        PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Distribute the upcoming milestone.
+    /// @dev Emits 'MilestoneStatusChanged() and 'Distributed()' events.
+    /// @param _recipientId The recipient of the distribution
+    /// @param _sender The sender of the distribution
+    function _distributeUpcomingMilestone(address _recipientId, address _sender) private {
+        uint256 milestoneToBeDistributed = upcomingMilestone[_recipientId];
+        Milestone[] storage recipientMilestones = milestones[_recipientId];
+
+        Recipient memory recipient = _recipients[_recipientId];
+        Milestone storage milestone = recipientMilestones[milestoneToBeDistributed];
+
+        // check if milestone is not rejected or already paid out
+        if (milestoneToBeDistributed > recipientMilestones.length || milestone.milestoneStatus != Status.Pending) {
+            revert INVALID_MILESTONE();
+        }
+
+        // Calculate the amount to be distributed for the milestone
+        uint256 amount = recipient.proposalBid * milestone.amountPercentage / 1e18;
+
+        // Get the pool, subtract the amount and transfer to the recipient
+        IAllo.Pool memory pool = allo.getPool(poolId);
+
+        poolAmount -= amount;
+        _transferAmount(pool.token, recipient.recipientAddress, amount);
+
+        // Set the milestone status to 'Accepted'
+        milestone.milestoneStatus = Status.Accepted;
+
+        // Increment the upcoming milestone
+        upcomingMilestone[_recipientId]++;
+
+        // Emit events for the milestone and the distribution
+        emit MilestoneStatusChanged(_recipientId, milestoneToBeDistributed, Status.Accepted);
+        emit Distributed(_recipientId, recipient.recipientAddress, amount, _sender);
     }
 }
