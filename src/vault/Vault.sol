@@ -91,7 +91,7 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
 
     /// @notice mint new tokens to the target address
 
-    // governor can mint any amount of gov tokens arbitrarily. 
+    // governor can mint any amount of gov tokens arbitrarily.
     function mint(address to, uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {
         _mint(to, amount);
     }
@@ -114,17 +114,16 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
     // }
 
     // distribute to knights
-    function _withdrawFromStrategy(uint256 amount) external onlyCoreRole(Roles.GOVERNOR){
-
+    function _withdrawFromStrategy(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {
         s_totalAssetsInStrategy -= amount;
 
         // StealthStrategy.
 
         // withdraw from an allo pool
 
-        // or set it so that 
+        // or set it so that
 
-        // the allocation distribute can only be called from here.. 
+        // the allocation distribute can only be called from here..
 
         // address yieldStrategyAddress = address(s_strategy.implementation);
 
@@ -133,11 +132,10 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
 
     // deposit from funders
     function _depositToStrategy(uint256 amount) external {
-
         s_totalAssetsInStrategy += amount;
 
         // anyone can deposit...
-        //  only governor can withdraw.. 
+        //  only governor can withdraw..
         // deposit into an allo pool
 
         // this call is forwarded to the allocation strategy
@@ -149,7 +147,7 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
 
     // get assets in the associated pool.
     function _getTotalAssetsInStrategy() external view returns (uint256) {
-        // get assets in an associated pool at a time. 
+        // get assets in an associated pool at a time.
 
         // get this from allocation startegy.
         return s_totalAssetsInStrategy;
