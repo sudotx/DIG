@@ -90,13 +90,15 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice mint new tokens to the target address
+
+    // governor can mint any amount of gov tokens arbitrarily. 
     function mint(address to, uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {
         _mint(to, amount);
     }
 
     // @dev Tracks assets owned by the vault plus assets in the strategy.
     function totalAssets() public view override returns (uint256) {
-        // return asset.balanceOf(address(this)) + s_totalAssetsInStrategy;
+        return IERC20(asset()).balanceOf(address(this)) + s_totalAssetsInStrategy;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -111,53 +113,46 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
     //     _depositToStrategy(assets);
     // }
 
-    /*//////////////////////////////////////////////////////////////
-                        Yield Strategy Logic
-    //////////////////////////////////////////////////////////////*/
-
-    modifier after_updateTotalAssetsInStrategy() {
-        _;
-        s_totalAssetsInStrategy = _getTotalAssetsInStrategy();
-    }
-
     // distribute to knights
-    function _withdrawFromStrategy(uint256 amount) internal {
+    function _withdrawFromStrategy(uint256 amount) external onlyCoreRole(Roles.GOVERNOR){
+
+        s_totalAssetsInStrategy -= amount;
+
+        // StealthStrategy.
+
+        // withdraw from an allo pool
+
+        // or set it so that 
+
+        // the allocation distribute can only be called from here.. 
+
         // address yieldStrategyAddress = address(s_strategy.implementation);
-        // bytes memory withdrawCalldata = abi.encodeWithSignature("withdraw(uint256)", amount);
 
-        // (bool success,) = yieldStrategyAddress.delegatecall(withdrawCalldata);
-        // if (!success) {
-        //     revert Vault_CouldNotWithdrawFromStrategy(msg.sender, address(asset), s_strategy.target, amount);
-        // }
-
-        // emit StrategyWithdrawal(s_strategy.implementation, amount);
+        emit StrategyWithdrawal(s_strategy.implementation, amount);
     }
 
     // deposit from funders
-    function _depositToStrategy(uint256 amount) internal {
+    function _depositToStrategy(uint256 amount) external {
+
+        s_totalAssetsInStrategy += amount;
+
+        // anyone can deposit...
+        //  only governor can withdraw.. 
+        // deposit into an allo pool
+
+        // this call is forwarded to the allocation strategy
+
         // address yieldStrategyAddress = address(s_strategy.implementation);
-        // bytes memory depositCalldata = abi.encodeWithSignature("deposit(uint256)", amount);
 
-        // (bool success,) = yieldStrategyAddress.delegatecall(depositCalldata);
-        // if (!success) {
-        //     revert Vault_CouldNotDepositToStrategy(msg.sender, address(asset), s_strategy.target, amount);
-        // }
-
-        // emit StrategyDeposit(s_strategy.implementation, amount);
+        emit StrategyDeposit(s_strategy.implementation, amount);
     }
 
     // get assets in the associated pool.
-    function _getTotalAssetsInStrategy() internal returns (uint256) {
-        // address yieldStrategyAddress = address(s_strategy.implementation);
-        // bytes memory totalAssetsCalldata = abi.encodeWithSignature("totalAssets()");
+    function _getTotalAssetsInStrategy() external view returns (uint256) {
+        // get assets in an associated pool at a time. 
 
-        // (bool success, bytes memory retData) = yieldStrategyAddress.delegatecall(totalAssetsCalldata);
-        // if (!success) {
-        //     revert Vault_CouldNotGetTotalAssetsFromStrategy(address(asset), s_strategy.target);
-        // }
-
-        // return abi.decode(retData, (uint256));
-        return 1;
+        // get this from allocation startegy.
+        return s_totalAssetsInStrategy;
     }
 
     // @dev just in case this contract receives ETH accidentally

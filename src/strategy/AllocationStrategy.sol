@@ -98,9 +98,6 @@ contract StealthStrategy is BaseStrategy {
 
     // create a lot of initiatives, pay a fee to create to avoid spamming
 
-    //! it is better to give roles to Actors instead of fitting them into an array that grows expensive as the list of users increase
-    //* but a good way to visualize things for now
-
     // this is the attached fee for an initative that can be set on the decision of the guardians
     uint256 feeForInitiative;
 
