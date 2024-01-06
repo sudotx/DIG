@@ -15,7 +15,7 @@ import {IStrategy} from "./interfaces/IStrategy.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Vault} from "./vault/Vault.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
-import {Roles} from "./GovRoles.sol";
+import {Roles} from "./governor/GovRoles.sol";
 
 // play with governance tokens here!!
 
@@ -71,6 +71,7 @@ contract Pantheon is
         // description of the initiative in as much detail as needed, this will be shown on the frontend.
         //! again using an array of bytes like this tends to get more expensive with more characters
         string Description;
+        uint256 initiativeId;
         // initiativeCreator that thought of this
         address Creator;
         // representing amount of pool funds to be allocated to this initiative
@@ -95,6 +96,8 @@ contract Pantheon is
         address[] Knights;
     }
 
+    mapping(uint256 => Initiative) private initiatives;
+
     constructor(
         address _timelock,
         address _token,
@@ -116,6 +119,32 @@ contract Pantheon is
         _setRoleAdmin(Roles.GOVERNOR, Roles.GOVERNOR);
         _setRoleAdmin(Roles.GUARDIAN, Roles.GOVERNOR);
     }
+
+    // public view if an intiative has been fundede
+
+    function initiativeFunded(uint256 initId, address account) public view returns (bool) {
+        // return initiatives[initId];
+    }
+
+    // function proposalVotes(uint256 proposalId)
+    //     public
+    //     view
+    //     virtual
+    //     returns (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes)
+    // {
+    //     // againstVotes are supporting the execution of Veto
+    //     // againstVotes = _proposalVotes[proposalId].againstVotes;
+    //     // no forVotes can be cast in the Veto module, keep 0 value
+    //     forVotes = 0;
+    //     // no abstainVotes can be cast in the Veto module, keep 0 value
+    //     abstainVotes = 0;
+    // }
+
+    // function _quorumReached(uint256 proposalId) internal view virtual override returns (bool) {
+    //     // ProposalVote storage proposalvote = _proposalVotes[proposalId];
+
+    //     // return quorum(proposalSnapshot(proposalId)) <= proposalvote.againstVotes;
+    // }
 
     /// ------------------------------------------------------------------------
     /// Quorum managment.
@@ -226,15 +255,31 @@ contract Pantheon is
     // this should house the main functionality for slashing, distributing tokens as well as
     // interacting with the main allo funds allocation
 
-    function createAnInitiative() private {
+    Initiative initiative;
+
+    function createAnInitiative() external {
         // users can create initiative
         // pay a fee to prevent spam
+        // Initiative storage _initiative = initiative;
+
+        // _initative.Description = "";
+        // _initative.Creator = address(1);
+        // _initative.CurrentFundsAlloacted = 1;
+        // _initative.isClearedForFunding = false;
+        // _initative.isFundingComplete = false;
+        // _initative.Voters = [];
+
+        // _initative = Initiiatve({
+        //     Description: "",
+        //     Creator: address(1),
+        //     CurrentFundsAllocated: 1,
+        //     isClearedForFunding: false,
+        //     isFundingComplete: false,
+        //     Voters: [address(0)],
+        //     Knights: address[address(0)]
+        // });
     }
-    function selectAnInitiative() private {
-        // providing the initiative details
-        // guardians select this initiative for possible funding
-        // the creator gets minted an NFT that will be used in the voting weight
-    }
+
     function voteOnASelectedInitiative() private {
         // providing the initiative details
         // holders of the voting nft can vote on this nft and provide funding

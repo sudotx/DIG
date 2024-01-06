@@ -6,6 +6,8 @@ import {IRegistry} from "src/interfaces/IRegistry.sol";
 import {Metadata} from "src/libraries/Metadata.sol";
 import {BaseStrategy} from "./BaseStrategy.sol";
 
+import {Roles} from "src/governor/GovRoles.sol";
+
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
 // represents the nft held by the guardians, they can be allows to vote on who gets funded..
@@ -35,6 +37,8 @@ contract StealthStrategy is BaseStrategy {
     }
 
     IVotes public GoverannceToken;
+
+    mapping(address => Recipient) private recipients;
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -75,6 +79,7 @@ contract StealthStrategy is BaseStrategy {
     // @notice Struct to hold the init params for the strategy
     struct InitializeData {
         address GovernanceToken;
+        uint256 timestamp;
         bool registryGating;
         bool metadataRequired;
         bool grantAmountRequired;
@@ -95,6 +100,7 @@ contract StealthStrategy is BaseStrategy {
 
     /// @notice The total amount allocated to grant/recipient.
     uint256 public allocatedGrantAmount;
+    uint256 public timeStamp;
 
     /// @notice This maps accepted recipients to their details
     /// @dev 'recipientId' to 'Recipient'
@@ -145,11 +151,17 @@ contract StealthStrategy is BaseStrategy {
         registryGating = _initData.registryGating;
         metadataRequired = _initData.metadataRequired;
         grantAmountRequired = _initData.grantAmountRequired;
+        timeStamp = _initData.timestamp;
         _registry = allo.getRegistry();
 
         // Set the pool to active - this is required for the strategy to work and distribute funds
         // NOTE: There may be some cases where you may want to not set this here, but will be strategy specific
         _setPoolActive(true);
+
+        // sanity check if token implements getPastVotes
+        // should revert if function is not available
+        (uint256 value) = GoverannceToken.getPastVotes(address(this), 0);
+        require(value == 0);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -203,7 +215,7 @@ contract StealthStrategy is BaseStrategy {
     /// @dev 'msg.sender' must be recipient creator or pool manager. Emits a 'MilestonesReviewed()' event.
     /// @param _recipientId ID of the recipient
     /// @param _milestones The milestones to be set
-    function setMilestones(address _recipientId, Milestone[] memory _milestones) external {
+    function setMilestones(address _recipientId, Milestone[] memory _milestones) external virtual {
         bool isRecipientCreator = (msg.sender == _recipientId) || _isProfileMember(_recipientId, msg.sender);
         bool isPoolManager = allo.isPoolManager(poolId, msg.sender);
         if (!isRecipientCreator && !isPoolManager) {
@@ -226,7 +238,10 @@ contract StealthStrategy is BaseStrategy {
     ///      must NOT be the same as 'msg.sender'. Emits a 'MilestonesSubmitted()' event.
     /// @param _recipientId ID of the recipient
     /// @param _metadata The proof of work
-    function submitMilestone(address _recipientId, uint256 _milestoneId, Metadata calldata _metadata) external {
+    function submitMilestone(address _recipientId, uint256 _milestoneId, Metadata calldata _metadata)
+        external
+        virtual
+    {
         // Check if the '_recipientId' is the same as 'msg.sender' and if it is NOT, revert. This
         // also checks if the '_recipientId' is a member of the 'Profile' and if it is NOT, revert.
         if (_recipientId != msg.sender && !_isProfileMember(_recipientId, msg.sender)) {
@@ -266,7 +281,7 @@ contract StealthStrategy is BaseStrategy {
     /// @dev 'msg.sender' must be a pool manager to reject a milestone. Emits a 'MilestonesStatusChanged()' event.
     /// @param _recipientId ID of the recipient
     /// @param _milestoneId ID of the milestone
-    function rejectMilestone(address _recipientId, uint256 _milestoneId) external onlyPoolManager(msg.sender) {
+    function rejectMilestone(address _recipientId, uint256 _milestoneId) external virtual onlyPoolManager(msg.sender) {
         Milestone[] storage recipientMilestones = milestones[_recipientId];
 
         // Check if the milestone is the upcoming one
@@ -291,7 +306,11 @@ contract StealthStrategy is BaseStrategy {
     /// @notice Set the status of the recipient to 'InReview'
     /// @dev Emits a 'RecipientStatusChanged()' event
     /// @param _recipientIds IDs of the recipients
-    function setRecipientStatusToInReview(address[] calldata _recipientIds) external onlyPoolManager(msg.sender) {
+    function setRecipientStatusToInReview(address[] calldata _recipientIds)
+        external
+        virtual
+        onlyPoolManager(msg.sender)
+    {
         uint256 recipientLength = _recipientIds.length;
         for (uint256 i; i < recipientLength;) {
             address recipientId = _recipientIds[i];
@@ -308,7 +327,7 @@ contract StealthStrategy is BaseStrategy {
     /// @notice Toggle the status between active and inactive.
     /// @dev 'msg.sender' must be a pool manager to close the pool. Emits a 'PoolActive()' event.
     /// @param _flag The flag to set the pool to active or inactive
-    function setPoolActive(bool _flag) external onlyPoolManager(msg.sender) {
+    function setPoolActive(bool _flag) external virtual onlyPoolManager(msg.sender) {
         _setPoolActive(_flag);
         emit PoolActive(_flag);
     }
@@ -316,7 +335,7 @@ contract StealthStrategy is BaseStrategy {
     /// @notice Withdraw funds from pool.
     /// @dev 'msg.sender' must be a pool manager to withdraw funds.
     /// @param _amount The amount to be withdrawn
-    function withdraw(uint256 _amount) external onlyPoolManager(msg.sender) onlyInactivePool {
+    function withdraw(uint256 _amount) external virtual onlyPoolManager(msg.sender) onlyInactivePool {
         // Decrement the pool amount
         poolAmount -= _amount;
 
@@ -402,50 +421,6 @@ contract StealthStrategy is BaseStrategy {
         emit Registered(recipientId, _data, _sender);
     }
 
-    /// @notice Allocate amount to recipent for direct grants.
-    /// @dev '_sender' must be a pool manager to allocate. Emits 'RecipientStatusChanged() and 'Allocated()' events.
-    /// @param _data The data to be decoded
-    /// @custom:data (address recipientId, Status recipientStatus, uint256 grantAmount)
-    /// @param _sender The sender of the allocation
-    function _allocate(bytes memory _data, address _sender) internal virtual override onlyPoolManager(_sender) {
-        // Decode the '_data'
-        (address recipientId, Status recipientStatus, uint256 grantAmount) =
-            abi.decode(_data, (address, Status, uint256));
-
-        Recipient storage recipient = _recipients[recipientId];
-
-        if (upcomingMilestone[recipientId] != 0) {
-            revert MILESTONES_ALREADY_SET();
-        }
-
-        if (recipient.recipientStatus != Status.Accepted && recipientStatus == Status.Accepted) {
-            IAllo.Pool memory pool = allo.getPool(poolId);
-            allocatedGrantAmount += grantAmount;
-
-            // Check if the allocated grant amount exceeds the pool amount and reverts if it does
-            if (allocatedGrantAmount > poolAmount) {
-                revert ALLOCATION_EXCEEDS_POOL_AMOUNT();
-            }
-
-            // recipient.grantAmount = grantAmount;
-            recipient.recipientStatus = Status.Accepted;
-
-            // Emit event for the acceptance
-            emit RecipientStatusChanged(recipientId, Status.Accepted);
-
-            // Emit event for the allocation
-            emit Allocated(recipientId, 0, pool.token, _sender);
-        } else if (
-            recipient.recipientStatus != Status.Rejected // no need to reject twice
-                && recipientStatus == Status.Rejected
-        ) {
-            recipient.recipientStatus = Status.Rejected;
-
-            // Emit event for the rejection
-            emit RecipientStatusChanged(recipientId, Status.Rejected);
-        }
-    }
-
     /// @notice Distribute the upcoming milestone to recipients.
     /// @dev '_sender' must be a pool manager to distribute.
     /// @param _recipientIds The recipient ids of the distribution
@@ -527,6 +502,34 @@ contract StealthStrategy is BaseStrategy {
         }
 
         emit MilestonesSet(_recipientId, milestonesLength);
+    }
+
+    /// @notice Allocate votes to a recipient
+    /// @param _data The data
+    /// @param _sender The sender of the transaction
+    /// @dev Only the pool manager(s) can call this function
+    function _allocate(bytes memory _data, address _sender) internal virtual override {
+        (address recipientId, uint256 voiceCreditsToAllocate) = abi.decode(_data, (address, uint256));
+
+        // spin up the structs in storage for updating
+        Recipient storage recipient = recipients[recipientId];
+        // Allocator storage allocator = allocators[_sender];
+
+        uint256 votePower = GoverannceToken.getPastVotes(_sender, timeStamp);
+
+        // if (!_hasVoiceCreditsLeft(voiceCreditsToAllocate + allocator.voiceCredits, votePower)) {
+        //     revert INVALID();
+        // }
+
+        if (!_isAcceptedRecipient(recipientId)) {
+            revert RECIPIENT_ERROR(recipientId);
+        }
+
+        // _qv_allocate(allocator, recipient, recipientId, voiceCreditsToAllocate, _sender);
+    }
+
+    function _isAcceptedRecipient(address _recipientId) internal view returns (bool) {
+        return recipients[_recipientId].recipientStatus == Status.Accepted;
     }
 
     /*//////////////////////////////////////////////////////////////

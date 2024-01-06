@@ -5,9 +5,12 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC4626} from "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IStrategy} from "../interfaces/IStrategy.sol";
-import {StealthStrategy} from "../strategy/AllocationStrategy.sol";
-import {Roles} from "../GovRoles.sol";
+import {IStrategy} from "src/interfaces/IStrategy.sol";
+import {StealthStrategy} from "src/strategy/AllocationStrategy.sol";
+import {Roles} from "src/governor/GovRoles.sol";
+import {Metadata} from "src/libraries/Metadata.sol";
+
+import {IAllo} from "src/interfaces/IAllo.sol";
 
 error Vault_CouldNotWithdrawFromStrategy(address sender, address asset, address yieldStrategyTarget, uint256 amount);
 error Vault_CouldNotDepositToStrategy(address sender, address asset, address yieldStrategyTarget, uint256 amount);
@@ -117,17 +120,28 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
         emit StrategyWithdrawal(s_strategy.implementation, amount);
     }
 
+    function createPoolWithCustomStrategy(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function distribute(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function fundPool(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function registerRecipient(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function recoverFunds(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function renounceRole(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function revokeRole(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function updateBaseFee(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function updatePercentFee(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+    function updateRegistry(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+
+    function removePoolManager(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
+
     // deposit from funders
     function _depositToStrategy(uint256 amount) external {
         s_totalAssetsInStrategy += amount;
+        (uint256 value) = super.deposit(amount, address(1));
+        assert(value == 1);
 
-        // anyone can deposit...
-        //  only governor can withdraw..
-        // deposit into an allo pool
+        // StealthStrategy.initialize
 
-        // this call is forwarded to the allocation strategy
-
-        // address yieldStrategyAddress = address(s_strategy.implementation);
+        // IAllo(address(0)).createPoolWithCustomStrategy()
 
         emit StrategyDeposit(s_strategy.implementation, amount);
     }

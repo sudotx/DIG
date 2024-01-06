@@ -13,4 +13,7 @@ library Roles {
 
     /// @notice the protector role. Can pause contracts and revoke roles in an emergency.
     bytes32 internal constant GUARDIAN = keccak256("GUARDIAN_ROLE");
+
+    /// @notice the allocator rols. Can pause contracts and revoke roles in an emergency.
+    bytes32 internal constant ALLOCATOR = keccak256("ALLOCATOR_ROLE");
 }
