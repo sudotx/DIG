@@ -12,20 +12,9 @@ contract Initiative {
     // InitiativeCall
     // InitiativeClose
 
-    enum LoanCloseType {
-        Repay,
-        Call,
-        Forgive
-    }
-
     // event: add collateral for initiative
 
-    /// @notice reference number of seconds in 1 year
-    uint256 public constant YEAR = 31557600;
-
     struct InitiativeStruct {
-        // description of the initiative in as much detail as needed, this will be shown on the frontend.
-        //! again using an array of bytes like this tends to get more expensive with more characters
         string Description;
         uint256 initiativeId;
         // initiativeCreator that thought of this
