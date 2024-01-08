@@ -4,21 +4,19 @@ Introducing an expreimental governance wrapper around allocation, and general in
 
 Overview
 
-Welcome to Decentral Initiative Guild (DIG), your one-stop solution for decentralized grant allocation on the blockchain. DIG is a governance wrapper contract designed to empower initiative creators and knights in managing and executing tasks efficiently and securely.
+Welcome to Decentral Initiative Guild (DIG), DIG is a governance wrapper contract designed to empower initiative creators and knights in managing and executing tasks efficiently and securely in a decentralized fashion.
 
-Although still an EXPERIMENTAL, WORK IN PROGRESS. DIG is set up to leverage all existing features of the Allo protocol
+Although still a WORK IN PROGRESS. DIG is set up to leverage all existing features of the Allo protocol
 
 Key Features
 
-    Governance at its Core: DIG utilizes a decentralized governance model that ensures fairness and transparency. Initiative creators can propose tasks, and knights can vote on the allocation of grants.
+    Governance at its Core: DIG utilizes a decentralized governance model that ensures fairness and transparency. Initiative creators can propose tasks, and knights can vote on the allocation of grants. This model will hopefully allow for a possibly infinite extensibility of the current functions and will allow for growth as the code of the Allo protocol eventually grows
 
     Registry Integration: Leveraging Allo as a decentralized database, providing a comprehensive list of initiative creators and knights. This integration ensures a trustless and verifiable environment for participants.
 
-    Smart Contract Security: Leveraging the robust security features of existing protocols, DIG ensures the integrity and safety of funds. Smart contracts are designed to follow best practices and utilize battle-tested security measures.
-
     Decentralized Task Execution: Knights, the task executors, play a crucial role in the DIG ecosystem. They are incentivized through on-chain payments for successfully completing tasks, fostering an active and engaged community.
 
-    Interoperability: DIG is designed to work seamlessly with existing blockchain protocols, allowing for easy integration and compatibility with various decentralized applications and platforms.
+    Interoperability: DIG is designed to work seamlessly with all implementations of Allo across all blockchains it is deployed to.
 
 Getting Started
 
@@ -54,9 +52,9 @@ Roadmap
 
 Stay connected with us for updates, discussions, and collaboration opportunities:
 
-Contributors:
+Contributor:
 @sudotx
 
-DIG is an open-source project for the Allo on Arbitrum hackathon driven by the idea of democratizing onchain fund allocation.
+DIG is an open source experiment for the Allo on Arbitrum hackathon driven by the idea of democratizing onchain fund allocation.
 
 Join us in shaping the future.
