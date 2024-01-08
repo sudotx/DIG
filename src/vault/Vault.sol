@@ -84,7 +84,7 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
     /// @dev prevent transfers if they are not globally enabled.
     /// mint and burn (transfers to and from address 0) are accepted.
     function _beforeTokenTransfer(address from, address to, uint256 /* amount*/ ) internal view override {
-        require(transferable || from == address(0) || to == address(0), "GovernanceToken: transfers disabled");
+        require(transferable || from == address(0) || to == address(0), "GuildToken: transfers disabled");
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -119,19 +119,6 @@ contract Vault is ERC4626, Ownable, StealthStrategy {
 
         emit StrategyWithdrawal(s_strategy.implementation, amount);
     }
-
-    function createPoolWithCustomStrategy(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function distribute(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function fundPool(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function registerRecipient(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function recoverFunds(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function renounceRole(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function revokeRole(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function updateBaseFee(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function updatePercentFee(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-    function updateRegistry(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
-
-    function removePoolManager(uint256 amount) external onlyCoreRole(Roles.GOVERNOR) {}
 
     // deposit from funders
     function _depositToStrategy(uint256 amount) external {

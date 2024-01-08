@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.13;
+pragma solidity ^0.8.0;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {Roles} from "./governor/GovRoles.sol";
 
 contract Initiative {
     using SafeERC20 for IERC20;
@@ -15,12 +16,12 @@ contract Initiative {
     // event: add collateral for initiative
 
     struct InitiativeStruct {
-        string Description;
+        string description;
         uint256 initiativeId;
         // initiativeCreator that thought of this
-        address Creator;
+        address creator;
         // representing amount of pool funds to be allocated to this initiative
-        uint256 CurrentFundsAllocated;
+        uint256 currentFundsAllocated;
         // guardians first have to clear this initiative for funding
         bool isClearedForFunding;
         // if funding goal is reached, then the funds can be streamed to a selected knight
@@ -31,14 +32,14 @@ contract Initiative {
         // they have some voting power to veto the course of the initative
 
         // guardians can vote, voters can vote, the creator of the initiative also has some funds allocated to it
-        address[] Voters;
+        address[] voters;
         // the knights are in charge of carrying out the initiative
         // they are vetted by the guardians and community at large
         // they are assumed to be skilled individuals, or bounty hunters
         // they are streamed part of the funds from the pool
 
         // if they default at any milestone, they can be slashed and removed as a knight from the platform if they get 3 strikes or majority decision
-        address[] Knights;
+        address[] knights;
     }
 
     mapping(uint256 => InitiativeStruct) private initiatives;
@@ -78,5 +79,27 @@ contract Initiative {
         return initiatives[initiativeId];
     }
 
-    function assignKnights() public {}
+    // public view if an intiative has been fund3d
+
+    function isInitiativeFundingRoundComplete(uint256 initId) public view returns (bool) {
+        return initiatives[initId].isFundingComplete;
+    }
+
+    function isInitiativeClearedForFunding(uint256 initId) public view returns (bool) {
+        return initiatives[initId].isClearedForFunding;
+    }
+
+    function clearForFunding(uint256 initId) public /*governorRoleOnly*/ {
+        //! governor has to clear this for funding.
+        initiatives[initId].isClearedForFunding = true;
+    }
+
+    function delegateFundsForAnInitiative(uint256 amount) public /*governorRoleOnly*/ {
+        // this interacts with the allo contract to get the funds into this contract.abi
+        // so some funds will be set aside for an initiative, which represent the project getting a grant
+
+        // based on the votes accrued by an initiative, an amount of funds is delegated for its completion by the governor
+
+        // call pool allocate to this initiative.
+    }
 }

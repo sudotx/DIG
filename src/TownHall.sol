@@ -16,6 +16,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Vault} from "./vault/Vault.sol";
 import {AccessControlEnumerable} from "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import {Roles} from "./governor/GovRoles.sol";
+import {Initiative} from "./Initiative.sol";
 
 // play with governance tokens here!!
 
@@ -23,7 +24,7 @@ import {Roles} from "./governor/GovRoles.sol";
 
 // proposals made here from tally, then pushed along by guardians, then funded and assigned to knights via milestones.
 
-contract Pantheon is
+contract TownHall is
     Vault,
     Governor,
     GovernorVotes,
@@ -51,52 +52,37 @@ contract Pantheon is
                             PROPOSED ACTORS
     //////////////////////////////////////////////////////////////*/
 
-    address[] private Voters;
+    // they are selected by the guardians and community, as specialized individuals who can carry out a task
+    // they are penalizeed for not meeting up to task expectation by being slashed from receiving streaming rewards
+    struct Knight {
+        address KnightAddress;
+        bool isFlagged;
+        Initiative.InitiativeStruct assignedInitiative;
+    }
+
+    mapping(uint256 => address) Knights;
+
+    struct Voter {
+        address VoterAddress;
+        bool hasVoted;
+    }
+
+    mapping(uint256 => address) Voters;
 
     // theses are delegated users that can perform constant votes to the direction of the system.
     // they are selected by the community.
+    struct Guardian {
+        address GuardianAddress;
+        bool hasVoted;
+        bool isFlagged;
+        bool isSlashed;
+    }
 
-    // mini aesir
-    address[] private Guardians;
-
-    // they are selected by the guardians and community, as specialized individuals who can carry out a task
-    // they are penalizeed for not meeting up to task expectation by being slashed from receiving streaming rewards
-    address[] private Knights;
+    mapping(uint256 => address) Guardians;
 
     // ALLFATHER, GOD OF AESIR
     // multisig controlled by everyone, holding a governance NFT. used to assign and revoke guardian roles.
     address public ALLFATHER;
-
-    struct Initiative {
-        // description of the initiative in as much detail as needed, this will be shown on the frontend.
-        //! again using an array of bytes like this tends to get more expensive with more characters
-        string Description;
-        uint256 initiativeId;
-        // initiativeCreator that thought of this
-        address Creator;
-        // representing amount of pool funds to be allocated to this initiative
-        uint256 CurrentFundsAllocated;
-        // guardians first have to clear this initiative for funding
-        bool isClearedForFunding;
-        // if funding goal is reached, then the funds can be streamed to a selected knight
-        // if there is no selected knight at this time, funds remain in the pool for a set amount of time
-        // other wise refunds are sent back to all concerned parties.
-        bool isFundingComplete;
-        // users who funded the initiative are added here, to decided how funds are used
-        // they have some voting power to veto the course of the initative
-
-        // guardians can vote, voters can vote, the creator of the initiative also has some funds allocated to it
-        address[] Voters;
-        // the knights are in charge of carrying out the initiative
-        // they are vetted by the guardians and community at large
-        // they are assumed to be skilled individuals, or bounty hunters
-        // they are streamed part of the funds from the pool
-
-        // if they default at any milestone, they can be slashed and removed as a knight from the platform if they get 3 strikes or majority decision
-        address[] Knights;
-    }
-
-    mapping(uint256 => Initiative) private initiatives;
 
     constructor(
         address _timelock,
@@ -118,12 +104,6 @@ contract Pantheon is
 
         _setRoleAdmin(Roles.GOVERNOR, Roles.GOVERNOR);
         _setRoleAdmin(Roles.GUARDIAN, Roles.GOVERNOR);
-    }
-
-    // public view if an intiative has been fundede
-
-    function initiativeFunded(uint256 initId, address account) public view returns (bool) {
-        // return initiatives[initId];
     }
 
     // function proposalVotes(uint256 proposalId)
@@ -252,92 +232,57 @@ contract Pantheon is
         return super.supportsInterface(interfaceId);
     }
 
-    // this should house the main functionality for slashing, distributing tokens as well as
-    // interacting with the main allo funds allocation
-
-    Initiative initiative;
-
-    function createAnInitiative() external {
-        // users can create initiative
-        // pay a fee to prevent spam
-        // Initiative storage _initiative = initiative;
-
-        // _initative.Description = "";
-        // _initative.Creator = address(1);
-        // _initative.CurrentFundsAlloacted = 1;
-        // _initative.isClearedForFunding = false;
-        // _initative.isFundingComplete = false;
-        // _initative.Voters = [];
-
-        // _initative = Initiiatve({
-        //     Description: "",
-        //     Creator: address(1),
-        //     CurrentFundsAllocated: 1,
-        //     isClearedForFunding: false,
-        //     isFundingComplete: false,
-        //     Voters: [address(0)],
-        //     Knights: address[address(0)]
-        // });
+    function slashAKnight(uint256 knightId) public {
+        // slash an knight from getting any more payouts from the system
     }
-
-    function voteOnASelectedInitiative() private {
-        // providing the initiative details
-        // holders of the voting nft can vote on this nft and provide funding
-        // also users with specific roles can vote on a initiative as well
-        // funds sent via this function are routed to the attacked pool and wait to be streamed to an individual that can do the work
-    }
-
-    function withdrawPayOut() private {
-        // an EOA(anon) can withdraw a part of the total payout staked for it
-        // it should not be able to withdraw all its stake
-        // naturally should have 3 vesting schedules. 33, 33, 33 -> rest stays on the contract. goes back to protocol
-        // between the 3 schedules, the anon will be sending up updates accoring to why they got the grant in the first place
-        // edge case..anons will just aim to get the 1/3 of the payout..each payout could be much granular.
-        // maybe a configurable % can be set due to some calculated risk appetite of the project
-
-        // this logic will be refactored into a pattern that allows users to be streamed the funds to a contract
-        // then this function allws them to claim from the funds set aside for them
-    }
-
-    function delegateFundsForAnInitiative() private {
-        // this interacts with the allo contract to get the funds into this contract.abi
-        // so some funds will be set aside for an initiative, which represent the project getting a grant
-    }
-
-    function slashAKnight() private {
-        // slash an anon from getting any more payouts from the system
-    }
-    function slashAGuardian() private {
+    function slashAGuardian(uint256 guardianId) public {
         // slash a percievd to be malicious guardian
     }
-    function confidenceThreshold() private view {
-        // threshold for confidence
-    }
-    function updateConfidenceThreshold() private {
-        // owner can change this
-    }
-    function getGuardian() private view {
+    function getGuardian(uint256 guardianId) public view {
         // get details of a guardian
         // including the votes made, users slashed etc
     }
-    function voteAgainstGuardian() private {
+    function getKnight(uint256 knightId) public view {
+        // get details of a guardian
+        // including the votes made, users slashed etc
+    }
+    function assignKnighthood(address addyB) public view {
+        // get details of a guardian
+        // including the votes made, users slashed etc
+    }
+
+    function assignGuardianhood(address addressA) public view {
+        // get details of a guardian
+        // including the votes made, users slashed etc
+    }
+    function assignVoterhood(address addy) public view {
+        // get details of a guardian
+        // including the votes made, users slashed etc
+    }
+
+    function voteAgainstGuardian(uint256 guardianId, uint256 amount) public {
         // other guardians can vote against guardians percieved to be malicious
         // guardian will be releived of its role
 
         //! ensure guardian cannot send the role about
         //! roles are only issues by the AllFather
     }
-    function slashAFlaggedAnon() private {
-        // slash an anon account that has been flagged previously, from receiving any other grants from this contract
-    }
-    function flagAKnight() private {
+
+    function voteAgainstKnight(uint256 knightId) public {
         // flag an anon percieved to be malicious
         // by guardian
     }
-    function distribute() private {
-        // distribute funds to all whitelisted anons
-        // based on varying schedules
 
-        // can be called by the owner of the contract. which is the super admin
+    function voteOnASelectedInitiative(uint256 initiativeId, uint256 voterId) public {
+        // require(Voters[voterId]. == msg.sender, "just checking, you are refering to y");
+        require(Voters[voterId] != address(0), "uh oh, not a voter here");
+        // require role, or add modifier to prevent unauthorized users from voting
+
+        // initiatives[initiativeId].CurrentFundsAllocated += 1;
+
+        // providing the initiative details
+        // holders of the voting nft can vote on this nft and provide funding
+        // also users with specific roles can vote on a initiative as well
+        // funds sent via this function are routed to the attacked pool and wait to be streamed to an individual that can do the work
     }
 }

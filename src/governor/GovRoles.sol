@@ -3,11 +3,9 @@ pragma solidity ^0.8.0;
 
 /**
  * @title Roles
- * @notice Holds a complete list of all roles which can be held by contracts inside the World.
+ * @notice Holds a complete list of all roles which can be held by contracts/EOAs
  */
 library Roles {
-    /// ----------- Core roles for access control --------------
-
     /// @notice the all-powerful role. Controls all other roles and protocol functionality.
     bytes32 internal constant GOVERNOR = keccak256("GOVERNOR_ROLE");
 
